@@ -57,12 +57,12 @@ function App() {
 
   // Inputs
   const [channelInput, setChannelInput] = useState('');
-  const [videoInput, setVideoInput] = useState('');
+  const [videoInputs, setVideoInputs] = useState(['', '', '']);
   const [limit, setLimit] = useState(12);
 
   // Data State
   const [videos, setVideos] = useState([]);
-  const [singleVideo, setSingleVideo] = useState(null);
+  const [singleVideos, setSingleVideos] = useState([]);
   const [channelInfo, setChannelInfo] = useState(null);
 
   // UI States
@@ -239,27 +239,57 @@ function App() {
     }
   };
 
-  // Fetch Single Video Details
-  const handleFetchSingleVideo = async (e) => {
+  // Multiple Video Links Input Handlers
+  const handleAddLinkInput = () => {
+    setVideoInputs(prev => [...prev, '']);
+  };
+
+  const handleRemoveLinkInput = (index) => {
+    if (videoInputs.length <= 1) return;
+    setVideoInputs(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleLinkInputChange = (index, value) => {
+    const next = [...videoInputs];
+    next[index] = value;
+    setVideoInputs(next);
+  };
+
+  // Fetch Multiple Video Details
+  const handleFetchSingleVideos = async (e) => {
     e.preventDefault();
-    if (!videoInput) return showToast('Vui lòng nhập link video TikTok!', 'error');
+    const validUrls = videoInputs.map(u => u.trim()).filter(Boolean);
+    if (validUrls.length === 0) return showToast('Vui lòng nhập ít nhất 1 link video TikTok!', 'error');
 
     setIsLoading(true);
-    setLoadingMsg('Đang tải thông tin chi tiết của video...');
-    setSingleVideo(null);
+    setLoadingMsg(`Đang quét thông tin chi tiết cho ${validUrls.length} video...`);
+    setSingleVideos([]);
 
     try {
-      const response = await fetch('/api/video-info', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: videoInput, proxy })
-      });
+      const results = await Promise.all(
+        validUrls.map(async (url) => {
+          try {
+            const response = await fetch('/api/video-info', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url, proxy })
+            });
+            const data = await response.json();
+            if (response.ok && data.video) return data.video;
+          } catch (err) {
+            console.error('Failed to fetch video:', url, err);
+          }
+          return null;
+        })
+      );
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.details || data.error || 'Failed to fetch video');
-
-      setSingleVideo(data.video);
-      showToast('Đã tải thành công thông tin video!');
+      const fetched = results.filter(Boolean);
+      if (fetched.length > 0) {
+        setSingleVideos(fetched);
+        showToast(`Đã tìm thấy ${fetched.length} video!`);
+      } else {
+        showToast('Không thể lấy thông tin video nào. Vui lòng kiểm tra lại link.', 'error');
+      }
     } catch (err) {
       console.error(err);
       showToast(err.message, 'error');
@@ -667,82 +697,112 @@ function App() {
         </div>
       )}
 
-      {/* Tab 2: Single Video Analyzer */}
+      {/* Tab 2: Single/Multiple Video Link Analyzer */}
       {activeTab === 'single' && !isLoading && (
-        <div className="single-section">
-          <form className="glass-card" onSubmit={handleFetchSingleVideo}>
-            <div className="input-group">
-              <input 
-                type="text" 
-                className="form-control"
-                placeholder="Dán link video TikTok (ví dụ: https://www.tiktok.com/@vtv24_tin_tuc/video/...)" 
-                value={videoInput}
-                onChange={(e) => setVideoInput(e.target.value)}
-              />
-              <button className="btn btn-primary" type="submit">Quét Video</button>
+        <div className="single-section" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <form className="glass-card" onSubmit={handleFetchSingleVideos} style={{ padding: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', margin: 0 }}>
+                🔗 Nhập link video TikTok (Quét hàng loạt)
+              </h3>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={handleAddLinkInput}
+                style={{ fontSize: '0.85rem', padding: '0.4rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#00f2fe', lineHeight: 1 }}>+</span> Thêm ô nhập link mới
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              {videoInputs.map((inputVal, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', width: '24px', textAlign: 'right', fontWeight: '600' }}>{idx + 1}.</span>
+                  <input 
+                    type="text" 
+                    className="form-control"
+                    placeholder={`Dán link video TikTok #${idx + 1} (ví dụ: https://www.tiktok.com/@user/video/...)`} 
+                    value={inputVal}
+                    onChange={(e) => handleLinkInputChange(idx, e.target.value)}
+                  />
+                  {videoInputs.length > 1 && (
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary" 
+                      onClick={() => handleRemoveLinkInput(idx)}
+                      style={{ padding: '0.45rem 0.75rem', color: '#ff3860', borderColor: 'rgba(255, 56, 96, 0.3)' }}
+                      title="Xóa ô này"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                * Màn hình mặc định 3 ô nhập. Bấm nút (+) để mở rộng ô nhập không giới hạn.
+              </p>
+              <button className="btn btn-primary" type="submit" style={{ padding: '0.6rem 1.75rem' }}>
+                Quét tất cả video
+              </button>
             </div>
           </form>
 
-          {singleVideo && (
-            <div className="glass-card" style={{ marginTop: '2rem', display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 300px', maxWidth: '340px' }}>
-                <div 
-                  className="video-thumbnail-container" 
-                  style={{ borderRadius: '12px', cursor: 'pointer' }}
-                  onClick={() => {
-                    setSelectedVideo(singleVideo);
-                    setActiveModal('watch');
-                  }}
-                  title="Click để xem video"
-                >
-                  <img className="video-thumbnail" src={singleVideo.thumbnail} alt={singleVideo.title} />
-                  <span className="video-views">{formatViews(singleVideo.viewCount)}</span>
-                  <span className="video-duration">{formatDuration(singleVideo.duration)}</span>
-                </div>
-              </div>
-              <div style={{ flex: '2 1 400px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                <div>
-                  <h2 style={{ fontSize: '1.4rem', marginBottom: '0.75rem' }}>{singleVideo.title}</h2>
-                  <p style={{ fontSize: '0.9rem', marginBottom: '1.5rem', color: 'var(--text-secondary)' }}>
-                    Kênh: <strong>@{singleVideo.uploader_id}</strong> ({singleVideo.uploader})
-                  </p>
-                  
-                  <div className="channel-stats" style={{ marginBottom: '2rem' }}>
-                    <div className="stat-item">Lượt thích: <strong>{singleVideo.likeCount?.toLocaleString() || 'N/A'}</strong></div>
-                    <div className="stat-item">Bình luận: <strong>{singleVideo.commentCount?.toLocaleString() || 'N/A'}</strong></div>
-                    <div className="stat-item">Chia sẻ: <strong>{singleVideo.shareCount?.toLocaleString() || 'N/A'}</strong></div>
-                  </div>
-                </div>
+          {/* Scanned Video Results Grid */}
+          {singleVideos.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <h3 style={{ fontSize: '1.2rem', color: 'var(--accent-cyan)' }}>
+                Kết quả quét ({singleVideos.length} video):
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem' }}>
+                {singleVideos.map((vid, i) => (
+                  <div key={i} className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1.25rem' }}>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                      <div 
+                        className="video-thumbnail-container" 
+                        style={{ width: '110px', height: '145px', minWidth: '110px', borderRadius: '8px', cursor: 'pointer', overflow: 'hidden', flexShrink: 0 }}
+                        onClick={() => {
+                          setSelectedVideo(vid);
+                          setActiveModal('watch');
+                        }}
+                        title="Click để xem video"
+                      >
+                        <img className="video-thumbnail" src={vid.thumbnail} alt={vid.title} />
+                        <span className="video-views">{formatViews(vid.viewCount)}</span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: '1' }}>
+                        <div>
+                          <div className="video-title" style={{ maxHeight: '75px', fontSize: '0.9rem', marginBottom: '0.4rem', wordBreak: 'break-word' }}>
+                            {vid.title}
+                          </div>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
+                            Kênh: <strong>@{vid.uploader_id}</strong>
+                          </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                          <span>❤️ {vid.likeCount?.toLocaleString() || 0}</span>
+                          <span>💬 {vid.commentCount?.toLocaleString() || 0}</span>
+                          <span>🔄 {vid.shareCount?.toLocaleString() || 0}</span>
+                        </div>
+                      </div>
+                    </div>
 
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                  <button className="btn btn-primary" onClick={() => handleDownload(singleVideo.webpage_url)}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                      <polyline points="7 10 12 15 17 10"></polyline>
-                      <line x1="12" y1="15" x2="12" y2="3"></line>
-                    </svg>
-                    Tải video không logo
-                  </button>
-                  <button className="btn btn-secondary" onClick={() => handleGetScript(singleVideo)}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                      <polyline points="14 2 14 8 20 8"></polyline>
-                      <line x1="16" y1="13" x2="8" y2="13"></line>
-                      <line x1="16" y1="17" x2="8" y2="17"></line>
-                    </svg>
-                    Lấy kịch bản
-                  </button>
-                  <button 
-                    className="btn" 
-                    style={{ background: 'linear-gradient(135deg, #b15cff 0%, #7622ff 100%)', color: '#fff' }}
-                    onClick={() => handleAnalyze(singleVideo)}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                    </svg>
-                    Phân tích AI
-                  </button>
-                </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem', marginTop: 'auto' }}>
+                      <button className="btn-action btn-action-download" style={{ padding: '0.45rem 0.25rem', fontSize: '0.75rem' }} onClick={() => handleDownload(vid.webpage_url)}>
+                        Tải không logo
+                      </button>
+                      <button className="btn-action btn-action-script" style={{ padding: '0.45rem 0.25rem', fontSize: '0.75rem' }} onClick={() => handleGetScript(vid)}>
+                        Lấy kịch bản
+                      </button>
+                      <button className="btn-action btn-action-analyze" style={{ padding: '0.45rem 0.25rem', fontSize: '0.75rem' }} onClick={() => handleAnalyze(vid)}>
+                        Phân tích AI
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
