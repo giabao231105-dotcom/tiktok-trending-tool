@@ -757,49 +757,51 @@ function App() {
               <h3 style={{ fontSize: '1.2rem', color: 'var(--accent-cyan)' }}>
                 Kết quả quét ({singleVideos.length} video):
               </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem' }}>
+              <div className="video-grid">
                 {singleVideos.map((vid, i) => (
-                  <div key={i} className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1.25rem' }}>
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                      <div 
-                        className="video-thumbnail-container" 
-                        style={{ width: '110px', height: '145px', minWidth: '110px', borderRadius: '8px', cursor: 'pointer', overflow: 'hidden', flexShrink: 0 }}
-                        onClick={() => {
-                          setSelectedVideo(vid);
-                          setActiveModal('watch');
-                        }}
-                        title="Click để xem video"
-                      >
-                        <img className="video-thumbnail" src={vid.thumbnail} alt={vid.title} />
-                        <span className="video-views">{formatViews(vid.viewCount)}</span>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: '1' }}>
-                        <div>
-                          <div className="video-title" style={{ maxHeight: '75px', fontSize: '0.9rem', marginBottom: '0.4rem', wordBreak: 'break-word' }}>
-                            {vid.title}
-                          </div>
-                          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
-                            Kênh: <strong>@{vid.uploader_id}</strong>
-                          </p>
+                  <div className="video-card" key={i}>
+                    <div 
+                      className="video-thumbnail-container"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => {
+                        setSelectedVideo(vid);
+                        setActiveModal('watch');
+                      }}
+                      title="Click để xem video"
+                    >
+                      <img className="video-thumbnail" src={vid.thumbnail} alt={vid.title} />
+                      <span className="video-views">{formatViews(vid.viewCount)}</span>
+                      <span className="video-duration">{formatDuration(vid.duration)}</span>
+                    </div>
+                    <div className="video-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+                      <div>
+                        <div className="video-title" title={vid.title} style={{ fontSize: '0.9rem', marginBottom: '0.4rem' }}>
+                          {vid.title}
                         </div>
-                        <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0.5rem 0' }}>
+                          Kênh: <strong>@{vid.uploader_id}</strong>
+                        </p>
+                      </div>
+                      
+                      <div style={{ marginTop: 'auto' }}>
+                        <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
                           <span>❤️ {vid.likeCount?.toLocaleString() || 0}</span>
                           <span>💬 {vid.commentCount?.toLocaleString() || 0}</span>
                           <span>🔄 {vid.shareCount?.toLocaleString() || 0}</span>
                         </div>
-                      </div>
-                    </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem', marginTop: 'auto' }}>
-                      <button className="btn-action btn-action-download" style={{ padding: '0.45rem 0.25rem', fontSize: '0.75rem' }} onClick={() => handleDownload(vid.webpage_url)}>
-                        Tải không logo
-                      </button>
-                      <button className="btn-action btn-action-script" style={{ padding: '0.45rem 0.25rem', fontSize: '0.75rem' }} onClick={() => handleGetScript(vid)}>
-                        Lấy kịch bản
-                      </button>
-                      <button className="btn-action btn-action-analyze" style={{ padding: '0.45rem 0.25rem', fontSize: '0.75rem' }} onClick={() => handleAnalyze(vid)}>
-                        Phân tích AI
-                      </button>
+                        <div className="video-actions" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
+                          <button className="btn-action btn-action-download" style={{ padding: '0.45rem 0.25rem', fontSize: '0.72rem' }} onClick={() => handleDownload(vid.webpage_url)}>
+                            Tải video
+                          </button>
+                          <button className="btn-action btn-action-script" style={{ padding: '0.45rem 0.25rem', fontSize: '0.72rem' }} onClick={() => handleGetScript(vid)}>
+                            Kịch bản
+                          </button>
+                          <button className="btn-action btn-action-analyze" style={{ padding: '0.45rem 0.25rem', fontSize: '0.72rem' }} onClick={() => handleAnalyze(vid)}>
+                            Phân tích
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
