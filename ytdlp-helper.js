@@ -60,8 +60,25 @@ async function ensureYtDlp() {
   }
 }
 
-// Generic execution function
-function execYtDlp(args, proxy = null) {
+// Function to update yt-dlp to latest version
+function updateYtDlp() {
+  return new Promise(async (resolve) => {
+    try {
+      const executable = await ensureYtDlp();
+      console.log('Checking and updating yt-dlp to latest version...');
+      exec(`"${executable}" -U`, (error, stdout, stderr) => {
+        console.log('yt-dlp update log:', (stdout || stderr || '').trim());
+        resolve(true);
+      });
+    } catch (e) {
+      console.warn('Update yt-dlp failed:', e.message);
+      resolve(false);
+    }
+  });
+}
+
+// Generic execution function with automatic self-healing retry on extractor errors
+function execYtDlp(args, proxy = null, retryOnUpdate = true) {
   return new Promise(async (resolve, reject) => {
     try {
       const executable = await ensureYtDlp();
@@ -71,8 +88,20 @@ function execYtDlp(args, proxy = null) {
       }
       
       console.log(`Running yt-dlp command: ${cmd}`);
-      exec(cmd, { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+      exec(cmd, { maxBuffer: 1024 * 1024 * 10 }, async (error, stdout, stderr) => {
         if (error) {
+          const errMsg = (stderr || error.message || '').toLowerCase();
+          // If error is related to extractor changes or secondary user ID, auto-update and retry
+          if (retryOnUpdate && (errMsg.includes('unable to extract') || errMsg.includes('impersonat') || errMsg.includes('extractor') || errMsg.includes('secondary user id'))) {
+            console.log('Detected yt-dlp extractor issue. Attempting auto-update and retrying command...');
+            await updateYtDlp();
+            try {
+              const retryRes = await execYtDlp(args, proxy, false);
+              return resolve(retryRes);
+            } catch (retryErr) {
+              return resolve({ success: false, stdout, stderr: retryErr.message, error: retryErr });
+            }
+          }
           resolve({ success: false, stdout, stderr, error });
         } else {
           resolve({ success: true, stdout, stderr });
@@ -86,7 +115,7 @@ function execYtDlp(args, proxy = null) {
 
 // Fetch videos list from a channel
 async function getChannelVideos(channelUrl, limit = 10, proxy = null) {
-  const args = [];
+  const args = ['--no-warnings'];
   if (limit && limit !== 'all' && parseInt(limit) > 0) {
     args.push(`--playlist-end ${limit}`);
   }
@@ -156,6 +185,7 @@ async function downloadAudio(videoUrl, outputPath, proxy = null) {
 
 module.exports = {
   ensureYtDlp,
+  updateYtDlp,
   getChannelVideos,
   getVideoInfo,
   downloadAudio

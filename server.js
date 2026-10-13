@@ -38,10 +38,12 @@ app.post('/api/channel', async (req, res) => {
   }
 
   // Clean the username/url if just username is given
-  let targetUrl = url;
-  if (!url.startsWith('http')) {
-    const cleanUser = url.replace('@', '');
+  let targetUrl = (url || '').trim();
+  if (!targetUrl.startsWith('http')) {
+    const cleanUser = targetUrl.replace(/^@+/, '');
     targetUrl = `https://www.tiktok.com/@${cleanUser}`;
+  } else {
+    targetUrl = targetUrl.split('?')[0].replace(/\/+$/, '');
   }
 
   console.log(`Fetching videos for channel: ${targetUrl} (Limit: ${limit}, Proxy: ${proxy ? 'Yes' : 'No'})`);
@@ -913,8 +915,9 @@ app.get('*', (req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Backend server is running on port ${PORT}`);
-  // Run yt-dlp check on startup to ensure it is downloaded
+  // Run yt-dlp check and update on startup to ensure latest extractor logic
   ytdlp.ensureYtDlp()
-    .then(() => console.log('yt-dlp is ready for use.'))
+    .then(() => ytdlp.updateYtDlp())
+    .then(() => console.log('yt-dlp is ready and up to date.'))
     .catch(err => console.error('Error pre-checking yt-dlp:', err));
 });
