@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import JSZip from 'jszip';
 
 // Custom lightweight Markdown parser for premium reports
 const parseMarkdown = (text) => {
@@ -81,6 +82,12 @@ function App() {
   const [history, setHistory] = useState([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
+
+  // Batch selection & ZIP download state
+  const [selectedChannelVideoIds, setSelectedChannelVideoIds] = useState(new Set());
+  const [selectedSingleVideoIds, setSelectedSingleVideoIds] = useState(new Set());
+  const [isZipping, setIsZipping] = useState(false);
+  const [zipProgress, setZipProgress] = useState('');
 
   // Load settings & history from LocalStorage on mount
   useEffect(() => {
@@ -295,6 +302,119 @@ function App() {
       showToast(err.message, 'error');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Helper to sanitize filenames
+  const sanitizeFilename = (name) => {
+    return (name || 'video')
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 50);
+  };
+
+  // Toggle single video selection
+  const handleToggleSelect = (videoId, tab = 'channel') => {
+    if (tab === 'channel') {
+      setSelectedChannelVideoIds(prev => {
+        const next = new Set(prev);
+        if (next.has(videoId)) next.delete(videoId);
+        else next.add(videoId);
+        return next;
+      });
+    } else {
+      setSelectedSingleVideoIds(prev => {
+        const next = new Set(prev);
+        if (next.has(videoId)) next.delete(videoId);
+        else next.add(videoId);
+        return next;
+      });
+    }
+  };
+
+  // Toggle select all
+  const handleSelectAll = (tab = 'channel') => {
+    if (tab === 'channel') {
+      if (selectedChannelVideoIds.size === videos.length) {
+        setSelectedChannelVideoIds(new Set());
+      } else {
+        setSelectedChannelVideoIds(new Set(videos.map(v => v.id)));
+      }
+    } else {
+      if (selectedSingleVideoIds.size === singleVideos.length) {
+        setSelectedSingleVideoIds(new Set());
+      } else {
+        setSelectedSingleVideoIds(new Set(singleVideos.map(v => v.id || v.webpage_url)));
+      }
+    }
+  };
+
+  // Batch download selected videos packaged as a ZIP file
+  const handleDownloadBatchZip = async (tab = 'channel') => {
+    const targetList = tab === 'channel' ? videos : singleVideos;
+    const selectedIds = tab === 'channel' ? selectedChannelVideoIds : selectedSingleVideoIds;
+    const selectedVideos = targetList.filter(v => selectedIds.has(v.id || v.webpage_url));
+
+    if (selectedVideos.length === 0) {
+      showToast('Vui lòng tích chọn ít nhất 1 video để tải về!', 'error');
+      return;
+    }
+
+    setIsZipping(true);
+    setZipProgress(`Đang chuẩn bị tải ${selectedVideos.length} video...`);
+    showToast(`Bắt đầu đóng gói ${selectedVideos.length} video vào file ZIP...`);
+
+    try {
+      const zip = new JSZip();
+      let successCount = 0;
+
+      for (let i = 0; i < selectedVideos.length; i++) {
+        const v = selectedVideos[i];
+        const videoUrl = v.url || v.webpage_url;
+        setZipProgress(`Đang tải video ${i + 1}/${selectedVideos.length}: ${v.title ? v.title.slice(0, 30) + '...' : ''}`);
+
+        try {
+          const downloadApiUrl = `/api/download?url=${encodeURIComponent(videoUrl)}&proxy=${encodeURIComponent(proxy || '')}`;
+          const res = await fetch(downloadApiUrl);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const blob = await res.blob();
+          const cleanTitle = sanitizeFilename(v.title);
+          const filename = `${String(i + 1).padStart(2, '0')}_${cleanTitle}_${v.id || Date.now()}.mp4`;
+          zip.file(filename, blob);
+          successCount++;
+        } catch (itemErr) {
+          console.warn(`Failed to download video ${videoUrl} for zip:`, itemErr.message);
+        }
+      }
+
+      if (successCount === 0) {
+        throw new Error('Không thể tải được video nào để nén.');
+      }
+
+      setZipProgress('Đang nén toàn bộ video thành file ZIP...');
+      const zipBlob = await zip.generateAsync({ type: 'blob' }, (metadata) => {
+        setZipProgress(`Đang nén file ZIP: ${Math.round(metadata.percent)}%`);
+      });
+
+      const downloadLink = document.createElement('a');
+      downloadLink.href = URL.createObjectURL(zipBlob);
+      const zipFileName = tab === 'channel' 
+        ? `TikTok_${channelInput ? channelInput.replace('@', '') : 'channel'}_${successCount}_videos.zip`
+        : `TikTok_batch_${successCount}_videos.zip`;
+      downloadLink.download = zipFileName;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      URL.revokeObjectURL(downloadLink.href);
+
+      showToast(`Đã tải thành công ${successCount} video trong file ZIP!`);
+    } catch (err) {
+      console.error('Error generating zip:', err);
+      showToast(`Lỗi khi tạo file ZIP: ${err.message}`, 'error');
+    } finally {
+      setIsZipping(false);
+      setZipProgress('');
     }
   };
 
@@ -647,53 +767,117 @@ function App() {
           )}
 
           {videos.length > 0 && (
-            <div className="video-grid">
-              {videos.map(video => (
-                <div className="video-card" key={video.id}>
-                  <div 
-                    className="video-thumbnail-container"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => {
-                      setSelectedVideo(video);
-                      setActiveModal('watch');
-                    }}
-                    title="Click để xem video"
-                  >
-                    <img className="video-thumbnail" src={video.thumbnail} alt={video.title} />
-                    <span className="video-views">{formatViews(video.viewCount)}</span>
-                    <span className="video-duration">{formatDuration(video.duration)}</span>
-                  </div>
-                  <div className="video-content">
-                    <div className="video-title" title={video.title}>{video.title}</div>
-                    <div className="video-actions">
-                      <button className="btn-action btn-action-download" onClick={() => handleDownload(video.url)}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                          <polyline points="7 10 12 15 17 10"></polyline>
-                          <line x1="12" y1="15" x2="12" y2="3"></line>
-                        </svg>
-                        Tải video không logo
-                      </button>
-                      <button className="btn-action btn-action-script" onClick={() => handleGetScript(video)}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                          <polyline points="14 2 14 8 20 8"></polyline>
-                          <line x1="16" y1="13" x2="8" y2="13"></line>
-                          <line x1="16" y1="17" x2="8" y2="17"></line>
-                          <polyline points="10 9 9 9 8 9"></polyline>
-                        </svg>
-                        Lấy kịch bản
-                      </button>
-                      <button className="btn-action btn-action-analyze" onClick={() => handleAnalyze(video)}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                        </svg>
-                        Phân tích video (AI)
-                      </button>
-                    </div>
-                  </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Batch Action Toolbar */}
+              <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.95rem' }}>
+                    <input 
+                      type="checkbox"
+                      checked={videos.length > 0 && selectedChannelVideoIds.size === videos.length}
+                      onChange={() => handleSelectAll('channel')}
+                      style={{ width: '18px', height: '18px', accentColor: '#00f2fe', cursor: 'pointer' }}
+                    />
+                    <span>Chọn tất cả ({selectedChannelVideoIds.size}/{videos.length} video)</span>
+                  </label>
                 </div>
-              ))}
+
+                <button 
+                  className="btn btn-primary"
+                  disabled={selectedChannelVideoIds.size === 0 || isZipping}
+                  onClick={() => handleDownloadBatchZip('channel')}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.25rem', fontSize: '0.9rem' }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  {isZipping ? (zipProgress || 'Đang đóng gói ZIP...') : `📦 Tải ${selectedChannelVideoIds.size} video đã chọn (.ZIP)`}
+                </button>
+              </div>
+
+              <div className="video-grid">
+                {videos.map(video => {
+                  const isSelected = selectedChannelVideoIds.has(video.id);
+                  return (
+                    <div className="video-card" key={video.id} style={{ position: 'relative' }}>
+                      {/* Checkbox overlay */}
+                      <div 
+                        style={{
+                          position: 'absolute',
+                          top: '10px',
+                          left: '10px',
+                          zIndex: 10,
+                          background: 'rgba(0, 0, 0, 0.75)',
+                          borderRadius: '6px',
+                          padding: '4px 6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          cursor: 'pointer',
+                          backdropFilter: 'blur(4px)',
+                          border: isSelected ? '1px solid #00f2fe' : '1px solid rgba(255, 255, 255, 0.2)'
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleSelect(video.id, 'channel');
+                        }}
+                        title="Tích chọn video này"
+                      >
+                        <input 
+                          type="checkbox" 
+                          checked={isSelected}
+                          onChange={() => {}}
+                          style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#00f2fe' }}
+                        />
+                      </div>
+
+                      <div 
+                        className="video-thumbnail-container"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => {
+                          setSelectedVideo(video);
+                          setActiveModal('watch');
+                        }}
+                        title="Click để xem video"
+                      >
+                        <img className="video-thumbnail" src={video.thumbnail} alt={video.title} />
+                        <span className="video-views">{formatViews(video.viewCount)}</span>
+                        <span className="video-duration">{formatDuration(video.duration)}</span>
+                      </div>
+                      <div className="video-content">
+                        <div className="video-title" title={video.title}>{video.title}</div>
+                        <div className="video-actions">
+                          <button className="btn-action btn-action-download" onClick={() => handleDownload(video.url)}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                              <polyline points="7 10 12 15 17 10"></polyline>
+                              <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            Tải video
+                          </button>
+                          <button className="btn-action btn-action-script" onClick={() => handleGetScript(video)}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                              <polyline points="14 2 14 8 20 8"></polyline>
+                              <line x1="16" y1="13" x2="8" y2="13"></line>
+                              <line x1="16" y1="17" x2="8" y2="17"></line>
+                              <polyline points="10 9 9 9 8 9"></polyline>
+                            </svg>
+                            Lấy kịch bản
+                          </button>
+                          <button className="btn-action btn-action-analyze" onClick={() => handleAnalyze(video)}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                            </svg>
+                            Phân tích
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -756,57 +940,123 @@ function App() {
           {/* Scanned Video Results Grid */}
           {singleVideos.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <h3 style={{ fontSize: '1.2rem', color: 'var(--accent-cyan)' }}>
-                Kết quả quét ({singleVideos.length} video):
-              </h3>
-              <div className="video-grid">
-                {singleVideos.map((vid, i) => (
-                  <div className="video-card" key={i}>
-                    <div 
-                      className="video-thumbnail-container"
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => {
-                        setSelectedVideo(vid);
-                        setActiveModal('watch');
-                      }}
-                      title="Click để xem video"
-                    >
-                      <img className="video-thumbnail" src={vid.thumbnail} alt={vid.title} />
-                      <span className="video-views">{formatViews(vid.viewCount)}</span>
-                      <span className="video-duration">{formatDuration(vid.duration)}</span>
-                    </div>
-                    <div className="video-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
-                      <div>
-                        <div className="video-title" title={vid.title} style={{ fontSize: '0.9rem', marginBottom: '0.4rem' }}>
-                          {vid.title}
-                        </div>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0.5rem 0' }}>
-                          Kênh: <strong>@{vid.uploader_id}</strong>
-                        </p>
-                      </div>
-                      
-                      <div style={{ marginTop: 'auto' }}>
-                        <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                          <span>❤️ {vid.likeCount?.toLocaleString() || 0}</span>
-                          <span>💬 {vid.commentCount?.toLocaleString() || 0}</span>
-                          <span>🔄 {vid.shareCount?.toLocaleString() || 0}</span>
-                        </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <h3 style={{ fontSize: '1.2rem', color: 'var(--accent-cyan)', margin: 0 }}>
+                  Kết quả quét ({singleVideos.length} video):
+                </h3>
+              </div>
 
-                        <div className="video-actions" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
-                          <button className="btn-action btn-action-download" style={{ padding: '0.45rem 0.25rem', fontSize: '0.72rem' }} onClick={() => handleDownload(vid.webpage_url)}>
-                            Tải video
-                          </button>
-                          <button className="btn-action btn-action-script" style={{ padding: '0.45rem 0.25rem', fontSize: '0.72rem' }} onClick={() => handleGetScript(vid)}>
-                            Kịch bản
-                          </button>
-                          <button className="btn-action btn-action-analyze" style={{ padding: '0.45rem 0.25rem', fontSize: '0.72rem' }} onClick={() => handleAnalyze(vid)}>
-                            Phân tích
-                          </button>
+              {/* Batch Action Toolbar */}
+              <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.95rem' }}>
+                    <input 
+                      type="checkbox"
+                      checked={singleVideos.length > 0 && selectedSingleVideoIds.size === singleVideos.length}
+                      onChange={() => handleSelectAll('single')}
+                      style={{ width: '18px', height: '18px', accentColor: '#00f2fe', cursor: 'pointer' }}
+                    />
+                    <span>Chọn tất cả ({selectedSingleVideoIds.size}/{singleVideos.length} video)</span>
+                  </label>
+                </div>
+
+                <button 
+                  className="btn btn-primary"
+                  disabled={selectedSingleVideoIds.size === 0 || isZipping}
+                  onClick={() => handleDownloadBatchZip('single')}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.25rem', fontSize: '0.9rem' }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  {isZipping ? (zipProgress || 'Đang đóng gói ZIP...') : `📦 Tải ${selectedSingleVideoIds.size} video đã chọn (.ZIP)`}
+                </button>
+              </div>
+
+              <div className="video-grid">
+                {singleVideos.map((vid, i) => {
+                  const vidId = vid.id || vid.webpage_url;
+                  const isSelected = selectedSingleVideoIds.has(vidId);
+                  return (
+                    <div className="video-card" key={i} style={{ position: 'relative' }}>
+                      {/* Checkbox overlay */}
+                      <div 
+                        style={{
+                          position: 'absolute',
+                          top: '10px',
+                          left: '10px',
+                          zIndex: 10,
+                          background: 'rgba(0, 0, 0, 0.75)',
+                          borderRadius: '6px',
+                          padding: '4px 6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          cursor: 'pointer',
+                          backdropFilter: 'blur(4px)',
+                          border: isSelected ? '1px solid #00f2fe' : '1px solid rgba(255, 255, 255, 0.2)'
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleSelect(vidId, 'single');
+                        }}
+                        title="Tích chọn video này"
+                      >
+                        <input 
+                          type="checkbox" 
+                          checked={isSelected}
+                          onChange={() => {}}
+                          style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#00f2fe' }}
+                        />
+                      </div>
+
+                      <div 
+                        className="video-thumbnail-container"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => {
+                          setSelectedVideo(vid);
+                          setActiveModal('watch');
+                        }}
+                        title="Click để xem video"
+                      >
+                        <img className="video-thumbnail" src={vid.thumbnail} alt={vid.title} />
+                        <span className="video-views">{formatViews(vid.viewCount)}</span>
+                        <span className="video-duration">{formatDuration(vid.duration)}</span>
+                      </div>
+                      <div className="video-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+                        <div>
+                          <div className="video-title" title={vid.title} style={{ fontSize: '0.9rem', marginBottom: '0.4rem' }}>
+                            {vid.title}
+                          </div>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0.5rem 0' }}>
+                            Kênh: <strong>@{vid.uploader_id}</strong>
+                          </p>
+                        </div>
+                        
+                        <div style={{ marginTop: 'auto' }}>
+                          <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+                            <span>❤️ {vid.likeCount?.toLocaleString() || 0}</span>
+                            <span>💬 {vid.commentCount?.toLocaleString() || 0}</span>
+                            <span>🔄 {vid.shareCount?.toLocaleString() || 0}</span>
+                          </div>
+
+                          <div className="video-actions" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
+                            <button className="btn-action btn-action-download" style={{ padding: '0.45rem 0.25rem', fontSize: '0.72rem' }} onClick={() => handleDownload(vid.webpage_url)}>
+                              Tải video
+                            </button>
+                            <button className="btn-action btn-action-script" style={{ padding: '0.45rem 0.25rem', fontSize: '0.72rem' }} onClick={() => handleGetScript(vid)}>
+                              Kịch bản
+                            </button>
+                            <button className="btn-action btn-action-analyze" style={{ padding: '0.45rem 0.25rem', fontSize: '0.72rem' }} onClick={() => handleAnalyze(vid)}>
+                              Phân tích
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
