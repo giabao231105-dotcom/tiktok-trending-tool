@@ -37,12 +37,26 @@ app.post('/api/channel', async (req, res) => {
     return res.status(400).json({ error: 'Channel URL or username is required' });
   }
 
-  // Clean the username/url if just username is given
+  // Clean the username/url or handle video URL to extract channel
   let targetUrl = (url || '').trim();
-  if (!targetUrl.startsWith('http')) {
+
+  // If user entered a video URL (e.g. tiktok.com/@user/video/123 or vt.tiktok.com), extract channel_id
+  const isVideoLink = targetUrl.includes('/video/') || targetUrl.includes('vt.tiktok.com') || targetUrl.includes('vm.tiktok.com');
+  if (isVideoLink) {
+    console.log(`Detected video link in channel scanner. Resolving author channel_id via yt-dlp...`);
+    try {
+      const channelId = await ytdlp.getChannelIdFromVideo(targetUrl, proxy);
+      if (channelId) {
+        console.log(`Successfully extracted channel_id (${channelId}) from video link!`);
+        targetUrl = `tiktokuser:${channelId}`;
+      }
+    } catch (vidErr) {
+      console.warn('Failed to extract channel_id from video link:', vidErr.message);
+    }
+  } else if (!targetUrl.startsWith('http') && !targetUrl.startsWith('tiktokuser:')) {
     const cleanUser = targetUrl.replace(/^@+/, '');
     targetUrl = `https://www.tiktok.com/@${cleanUser}`;
-  } else {
+  } else if (!targetUrl.startsWith('tiktokuser:')) {
     targetUrl = targetUrl.split('?')[0].replace(/\/+$/, '');
   }
 
@@ -77,10 +91,14 @@ app.post('/api/channel', async (req, res) => {
     res.json({ success: true, count: videos.length, videos });
   } catch (error) {
     console.error('Error fetching channel videos:', error);
+    let errMsg = error.message || '';
+    if (errMsg.includes('Unable to extract secondary user ID') || errMsg.includes('secondary user ID')) {
+      errMsg = 'TikTok đang bật bảo vệ WAF chặn quét trực tiếp qua username. 👉 GIẢI PHÁP: Bạn chỉ cần dán LINK 1 VIDEO BẤT KỲ của kênh này vào ô tìm kiếm, hệ thống sẽ tự động quét toàn bộ video của kênh!';
+    }
     res.status(500).json({
       error: 'Failed to fetch channel videos',
-      details: error.message,
-      note: 'If your IP is blocked by TikTok, try setting up an HTTP/HTTPS proxy in the settings.'
+      details: errMsg,
+      note: 'Mẹo: Dán link 1 video của kênh để quét toàn bộ kênh không bị chặn.'
     });
   }
 });

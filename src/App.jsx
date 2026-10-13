@@ -612,7 +612,7 @@ function App() {
               <input 
                 type="text" 
                 className="form-control"
-                placeholder="Nhập link kênh (ví dụ: https://www.tiktok.com/@vtv24_tin_tuc) hoặc @username" 
+                placeholder="Dán link 1 video bất kỳ (Khuyên dùng) hoặc nhập @username" 
                 value={channelInput}
                 onChange={(e) => setChannelInput(e.target.value)}
               />
@@ -631,7 +631,9 @@ function App() {
               </select>
               <button className="btn btn-primary" type="submit">Quét Kênh</button>
             </div>
-            <p style={{ fontSize: '0.85rem' }}>* Mẹo: Cấu hình API Key trong mục cài đặt (bánh răng) góc trên bên phải để dùng tính năng AI.</p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0.5rem 0 0 0' }}>
+              💡 <strong>Mẹo vượt chặn:</strong> Bạn có thể <strong>dán link 1 video bất kỳ của kênh</strong> để hệ thống tự động bóc tách và quét toàn bộ kênh 100% không lo TikTok chặn username!
+            </p>
           </form>
 
           {channelInfo && (

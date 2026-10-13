@@ -148,6 +148,19 @@ async function getChannelVideos(channelUrl, limit = 10, proxy = null) {
   return videos;
 }
 
+// Extract channel_id (secUid) from any video URL of a channel
+async function getChannelIdFromVideo(videoUrl, proxy = null) {
+  const args = ['--no-warnings', '--flat-playlist', '--print', 'channel_id', `"${videoUrl}"`];
+  const result = await execYtDlp(args, proxy);
+  if (result.success && result.stdout.trim()) {
+    const channelId = result.stdout.trim().split('\n')[0].trim();
+    if (channelId && channelId !== 'NA' && channelId !== 'null') {
+      return channelId;
+    }
+  }
+  return null;
+}
+
 // Fetch details of a single video
 async function getVideoInfo(videoUrl, proxy = null) {
   const args = [
@@ -187,6 +200,7 @@ module.exports = {
   ensureYtDlp,
   updateYtDlp,
   getChannelVideos,
+  getChannelIdFromVideo,
   getVideoInfo,
   downloadAudio
 };
