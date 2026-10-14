@@ -179,6 +179,65 @@ app.post('/api/video-info', async (req, res) => {
   }
 });
 
+// Endpoint to fetch batch video details
+app.post('/api/batch-video-info', async (req, res) => {
+  const { urls, proxy = null } = req.body;
+  if (!Array.isArray(urls) || urls.length === 0) {
+    return res.status(400).json({ error: 'Array of URLs is required' });
+  }
+
+  console.log(`[Batch] Fetching details for ${urls.length} videos...`);
+  try {
+    const results = await Promise.all(
+      urls.map(async (url) => {
+        try {
+          let details = await fetchVideoInfoFromTikWM(url);
+          if (!details) {
+            try {
+              const data = await ytdlp.getVideoInfo(url, proxy);
+              details = {
+                id: data.id,
+                title: data.title || data.description || 'No Title',
+                description: data.description || '',
+                thumbnail: data.thumbnail || (data.thumbnails?.[0]?.url) || null,
+                duration: data.duration || null,
+                viewCount: data.view_count || null,
+                likeCount: data.like_count || null,
+                commentCount: data.comment_count || null,
+                shareCount: data.share_count || null,
+                uploader: data.uploader || null,
+                uploader_id: data.uploader_id || null,
+                webpage_url: data.webpage_url
+              };
+            } catch (_) {}
+          }
+          return details;
+        } catch (err) {
+          console.warn(`[Batch] Error fetching ${url}:`, err.message);
+          return null;
+        }
+      })
+    );
+
+    const videos = results.filter(Boolean);
+    res.json({ success: true, count: videos.length, videos });
+  } catch (err) {
+    console.error('[Batch] Failed:', err);
+    res.status(500).json({ error: 'Failed to fetch batch video info', details: err.message });
+  }
+});
+
+// Endpoint to download ZVibe Chrome Extension ZIP
+app.get('/api/download-extension', (req, res) => {
+  const zipPath = path.join(__dirname, 'public', 'zvibe-tiktok-helper.zip');
+  if (fs.existsSync(zipPath)) {
+    res.download(zipPath, 'zvibe-tiktok-helper.zip');
+  } else {
+    res.status(404).send('Extension zip not found');
+  }
+});
+
+
 // Endpoint to download video without logo (streaming pipe)
 app.get('/api/download', async (req, res) => {
   const { url, proxy = null } = req.query;

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZVibe TikTok Helper</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    body {
+      width: 320px;
+      padding: 16px;
+      background: #0f172a;
+      color: #f8fafc;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 12px;
+      margin-bottom: 12px;
+    }
+    .icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    .title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .subtitle {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .status-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 8px #22c55e;
+    }
+    .btn {
+      width: 100%;
+      padding: 10px;
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: opacity 0.2s;
+      text-decoration: none;
+      margin-bottom: 8px;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn-secondary {
+      background: #334155;
+      color: #cbd5e1;
+    }
+    .info {
+      font-size: 11px;
+      color: #64748b;
+      line-height: 1.4;
+      text-align: center;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="icon">⚡</div>
+    <div>
+      <div class="title">ZVibe TikTok Helper</div>
+      <div class="subtitle">Trợ lý quét kênh & tải video TikTok</div>
+    </div>
+  </div>
+
+  <div class="status-card">
+    <div class="dot"></div>
+    <span>Tiện ích đang hoạt động 24/7</span>
+  </div>
+
+  <a href="https://tiktok-trending-tool.onrender.com" target="_blank" class="btn">
+    🚀 Mở ZVibe Trending Tool (Web)
+  </a>
+
+  <a href="http://localhost:3000" target="_blank" class="btn btn-secondary">
+    💻 Mở Local (localhost:3000)
+  </a>
+
+  <div class="info">
+    Tiện ích sẽ tự động nhận lệnh khi bạn bấm <strong>"Bắt đầu quét kênh"</strong> trên trang Web ZVibe.
+  </div>
+</body>
+</html>

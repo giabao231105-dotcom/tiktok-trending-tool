@@ -89,6 +89,51 @@ function App() {
   const [isZipping, setIsZipping] = useState(false);
   const [zipProgress, setZipProgress] = useState('');
 
+  // Chrome Extension Integration State
+  const [isExtensionActive, setIsExtensionActive] = useState(false);
+
+  // Listen for ZVibe Chrome Extension heartbeat/handshake
+  useEffect(() => {
+    const handleExtensionMsg = (e) => {
+      if (e.data?.type === 'ZVIBE_EXTENSION_READY' || e.data?.type === 'ZVIBE_PONG_EXTENSION') {
+        setIsExtensionActive(true);
+      }
+    };
+    window.addEventListener('message', handleExtensionMsg);
+    window.postMessage({ type: 'ZVIBE_PING_EXTENSION' }, '*');
+    return () => window.removeEventListener('message', handleExtensionMsg);
+  }, []);
+
+  // Helper to trigger channel scan via Chrome Extension
+  const scanChannelViaExtension = (targetChannel, targetLimit) => {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        window.removeEventListener('message', onResult);
+        reject(new Error('Quá thời gian quét kênh từ Extension (60s).'));
+      }, 65000);
+
+      const onResult = (e) => {
+        if (!e.data) return;
+        if (e.data.type === 'ZVIBE_CHANNEL_SCAN_DONE') {
+          clearTimeout(timeout);
+          window.removeEventListener('message', onResult);
+          resolve(e.data);
+        } else if (e.data.type === 'ZVIBE_CHANNEL_SCAN_ERROR') {
+          clearTimeout(timeout);
+          window.removeEventListener('message', onResult);
+          reject(new Error(e.data.error || 'Extension báo lỗi khi quét kênh.'));
+        }
+      };
+
+      window.addEventListener('message', onResult);
+      window.postMessage({
+        type: 'ZVIBE_START_CHANNEL_SCAN',
+        channelUrl: targetChannel,
+        limit: targetLimit === 'all' ? 100 : Number(targetLimit) || 30
+      }, '*');
+    });
+  };
+
   // Load settings & history from LocalStorage on mount
   useEffect(() => {
     const savedKey = localStorage.getItem('gemini_api_key');
@@ -210,10 +255,50 @@ function App() {
     if (!channelInput) return showToast('Vui lòng nhập link kênh hoặc username!', 'error');
 
     setIsLoading(true);
-    setLoadingMsg('Đang tải danh sách video từ kênh TikTok...');
     setVideos([]);
     setChannelInfo(null);
 
+    // PRIORITY 1: Scan directly via ZVibe Chrome Extension (Immune to TikTok datacenter IP blocks)
+    if (isExtensionActive) {
+      setLoadingMsg('⚡ Chrome Extension đang tự động mở kênh TikTok và quét video...');
+      try {
+        const result = await scanChannelViaExtension(channelInput, limit);
+        if (!result.videos || result.videos.length === 0) {
+          throw new Error('Extension không tìm thấy video nào trên kênh này.');
+        }
+
+        setLoadingMsg(`Extension đã thu thập ${result.videos.length} video! Đang bóc tách số liệu & chỉ số Trend...`);
+
+        // Fetch detailed metrics for all scraped video URLs
+        const batchRes = await fetch('/api/batch-video-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urls: result.videos, proxy })
+        });
+        const batchData = await batchRes.json();
+
+        if (batchRes.ok && batchData.videos && batchData.videos.length > 0) {
+          setVideos(batchData.videos);
+          setChannelInfo({
+            name: result.uploader || batchData.videos[0]?.uploader || channelInput,
+            username: result.uploaderId || batchData.videos[0]?.uploader_id || channelInput,
+            avatar: result.avatar || batchData.videos[0]?.thumbnail || 'https://www.w3schools.com/howto/img_avatar.png'
+          });
+          showToast(`⚡ Đã quét thành công ${batchData.videos.length} video bằng Chrome Extension!`);
+        } else {
+          throw new Error(batchData.details || 'Không thể lấy thông tin chi tiết video.');
+        }
+      } catch (err) {
+        console.error('Extension scan error:', err);
+        showToast(err.message, 'error');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // PRIORITY 2: Fallback to standard server-side yt-dlp scraping
+    setLoadingMsg('Đang tải danh sách video từ kênh TikTok...');
     try {
       const response = await fetch('/api/channel', {
         method: 'POST',
@@ -222,7 +307,11 @@ function App() {
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.details || data.error || 'Failed to fetch channel');
+      if (!response.ok) {
+        // If TikTok blocks server IP, suggest installing Chrome Extension
+        setActiveModal('extension');
+        throw new Error(data.details || data.error || 'Failed to fetch channel');
+      }
 
       if (data.videos && data.videos.length > 0) {
         setVideos(data.videos);
@@ -236,7 +325,8 @@ function App() {
         });
         showToast(`Đã tìm thấy ${data.videos.length} video trong kênh!`);
       } else {
-        showToast('Không tìm thấy video nào. Hãy thử đổi cài đặt proxy.', 'error');
+        setActiveModal('extension');
+        showToast('Không tìm thấy video nào. Vui lòng cài Chrome Extension để quét không bị chặn!', 'error');
       }
     } catch (err) {
       console.error(err);
@@ -680,6 +770,20 @@ function App() {
 
   return (
     <div className="app-container">
+      {/* Floating Extension Status Button */}
+      <button 
+        className="settings-trigger" 
+        style={{ 
+          right: '5.2rem', 
+          background: isExtensionActive ? 'rgba(34, 197, 94, 0.15)' : 'rgba(99, 102, 241, 0.15)',
+          borderColor: isExtensionActive ? 'rgba(34, 197, 94, 0.5)' : 'rgba(129, 140, 248, 0.4)' 
+        }}
+        onClick={() => setActiveModal('extension')} 
+        title={isExtensionActive ? "Extension đã kết nối (Click để xem chi tiết)" : "Cài đặt Extension vượt tường lửa TikTok"}
+      >
+        <span style={{ fontSize: '18px' }}>{isExtensionActive ? '🟢' : '⚡'}</span>
+      </button>
+
       {/* Floating Settings Button */}
       <button className="settings-trigger" onClick={() => setActiveModal('settings')} title="Cài đặt">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -727,12 +831,55 @@ function App() {
       {/* Tab 1: Channel Analyzer */}
       {activeTab === 'channel' && !isLoading && (
         <div className="channel-section">
+          {/* Extension Status Banner */}
+          <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center' }}>
+            {isExtensionActive ? (
+              <div 
+                style={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '8px', 
+                  background: 'rgba(34, 197, 94, 0.12)', 
+                  border: '1px solid rgba(34, 197, 94, 0.35)', 
+                  borderRadius: '24px', 
+                  padding: '6px 16px', 
+                  fontSize: '0.88rem', 
+                  color: '#4ade80' 
+                }}
+              >
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 10px #22c55e' }}></span>
+                <span><strong>Đã kết nối Chrome Extension:</strong> Tự động mở kênh & quét sạch toàn bộ video không bị chặn!</span>
+              </div>
+            ) : (
+              <div 
+                onClick={() => setActiveModal('extension')}
+                style={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '10px', 
+                  background: 'linear-gradient(90deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15))', 
+                  border: '1px solid rgba(129, 140, 248, 0.4)', 
+                  borderRadius: '24px', 
+                  padding: '6px 18px', 
+                  fontSize: '0.88rem', 
+                  color: '#c7d2fe',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s'
+                }}
+                title="Bấm để xem hướng dẫn cài đặt trong 10 giây"
+              >
+                <span>⚡ <strong>Khuyên dùng:</strong> Cài đặt <strong>ZVibe Chrome Extension</strong> để quét kênh tự động 100% qua trình duyệt</span>
+                <span style={{ textDecoration: 'underline', color: '#38bdf8', fontWeight: 600 }}>Cài đặt ngay &rarr;</span>
+              </div>
+            )}
+          </div>
+
           <form className="glass-card" onSubmit={handleFetchChannel}>
             <div className="input-group">
               <input 
                 type="text" 
                 className="form-control"
-                placeholder="Dán link 1 video bất kỳ (Khuyên dùng) hoặc nhập @username" 
+                placeholder="Dán link kênh (ví dụ: tiktok.com/@vtv24news) hoặc dán link 1 video của kênh" 
                 value={channelInput}
                 onChange={(e) => setChannelInput(e.target.value)}
               />
@@ -752,7 +899,7 @@ function App() {
               <button className="btn btn-primary" type="submit">Quét Kênh</button>
             </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0.5rem 0 0 0' }}>
-              💡 <strong>Mẹo vượt chặn:</strong> Bạn có thể <strong>dán link 1 video bất kỳ của kênh</strong> để hệ thống tự động bóc tách và quét toàn bộ kênh 100% không lo TikTok chặn username!
+              💡 Khi bấm <strong>"Quét Kênh"</strong>, tiện ích Extension sẽ tự động mở tab kênh TikTok và thu thập toàn bộ video trả về đây cho bạn!
             </p>
           </form>
 
@@ -1598,6 +1745,101 @@ function App() {
                   <button className="btn btn-primary" type="submit">Lưu lại</button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Extension Modal */}
+      {activeModal === 'extension' && (
+        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+          <div className="modal-content" style={{ maxWidth: '580px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>⚡</span>
+                <h3 style={{ margin: 0 }}>Tiện ích Chrome Extension Quét Kênh</h3>
+              </div>
+              <button className="modal-close" onClick={() => setActiveModal(null)}>&times;</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Status banner */}
+              <div style={{ 
+                padding: '0.85rem 1rem', 
+                borderRadius: '10px', 
+                background: isExtensionActive ? 'rgba(34, 197, 94, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+                border: isExtensionActive ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(234, 179, 8, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <span style={{ fontSize: '20px' }}>{isExtensionActive ? '🟢' : '🟡'}</span>
+                <div>
+                  <strong style={{ color: isExtensionActive ? '#4ade80' : '#facc15' }}>
+                    {isExtensionActive ? 'Extension đang hoạt động hoàn hảo!' : 'Chưa phát hiện Extension trên trình duyệt'}
+                  </strong>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                    {isExtensionActive 
+                      ? 'Hệ thống sẽ tự động mượn phiên duyệt Chrome để quét sạch video mỗi khi bạn bấm "Quét Kênh".' 
+                      : 'Hãy cài đặt theo các bước bên dưới (chỉ mất 10 giây) để quét kênh mượt mà không lo bị TikTok chặn.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Big Download Button */}
+              <div style={{ textAlign: 'center' }}>
+                <a 
+                  href="/zvibe-tiktok-helper.zip" 
+                  download="zvibe-tiktok-helper.zip"
+                  className="btn btn-primary"
+                  style={{ 
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    gap: '10px', 
+                    padding: '0.75rem 1.75rem', 
+                    fontSize: '1rem',
+                    textDecoration: 'none',
+                    fontWeight: 700,
+                    boxShadow: '0 4px 15px rgba(0, 242, 254, 0.3)'
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  Tải xuống ZVibe Extension (.ZIP - 9KB)
+                </a>
+              </div>
+
+              {/* 3 Step Install Guide */}
+              <div style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '10px', padding: '1.25rem', border: '1px solid var(--border-color)' }}>
+                <h4 style={{ color: 'var(--text-primary)', marginBottom: '0.75rem', fontSize: '0.95rem' }}>
+                  📖 Hướng dẫn cài đặt nhanh trong 10 giây:
+                </h4>
+                <ol style={{ paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                  <li>
+                    <strong>Bước 1:</strong> Bấm nút tải ở trên &rarr; Giải nén file <code>zvibe-tiktok-helper.zip</code> thành 1 thư mục trên máy tính của bạn.
+                  </li>
+                  <li>
+                    <strong>Bước 2:</strong> Mở tab mới trên Chrome, truy cập vào đường dẫn: <code style={{ color: '#00f2fe', background: 'rgba(0,242,254,0.1)', padding: '2px 6px', borderRadius: '4px' }}>chrome://extensions/</code>
+                  </li>
+                  <li>
+                    <strong>Bước 3:</strong> Bật công tắc <strong>"Chế độ cho nhà phát triển" (Developer mode)</strong> ở góc trên bên phải màn hình.
+                  </li>
+                  <li>
+                    <strong>Bước 4:</strong> Bấm nút <strong>"Tải tiện ích đã giải nén" (Load unpacked)</strong> ở góc trái &rarr; Chọn thư mục vừa giải nén.
+                  </li>
+                  <li>
+                    <strong>Bước 5:</strong> Xong! Quay lại trang này bấm <strong>F5</strong> (Tải lại trang) là biểu tượng sẽ chuyển sang màu xanh 🟢.
+                  </li>
+                </ol>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button className="btn btn-secondary" onClick={() => setActiveModal(null)}>
+                  Đóng
+                </button>
+              </div>
             </div>
           </div>
         </div>
