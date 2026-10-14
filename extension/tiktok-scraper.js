@@ -52,8 +52,22 @@ function updateOverlay(text, count, limit) {
   if (counterEl) counterEl.innerText = `Đã quét: ${count} / ${limit} video`;
 }
 
-// Extract unique video links from the DOM
-function extractVideoLinks() {
+function parseCount(text) {
+  if (!text) return 0;
+  text = text.trim().toUpperCase();
+  if (text.endsWith('M')) {
+    return Math.round(parseFloat(text) * 1000000);
+  } else if (text.endsWith('K')) {
+    return Math.round(parseFloat(text) * 1000);
+  } else if (text.endsWith('B')) {
+    return Math.round(parseFloat(text) * 1000000000);
+  }
+  const clean = text.replace(/[^0-9.]/g, '');
+  return parseInt(clean, 10) || 0;
+}
+
+// Extract unique video cards with rich metadata directly from the DOM
+function extractVideoItems(uploader, uploaderId) {
   const anchors = Array.from(document.querySelectorAll('a[href*="/video/"]'));
   const foundMap = new Map();
 
@@ -63,9 +77,36 @@ function extractVideoLinks() {
     if (match) {
       const vid = match[1];
       if (!foundMap.has(vid)) {
-        // Build standardized clean URL
         const cleanUrl = href.split('?')[0];
-        foundMap.set(vid, cleanUrl);
+
+        // Locate card container
+        const card = a.closest('[data-e2e="user-post-item"]') || a.closest('div[class*="DivItemContainer"]') || a.parentElement || a;
+        
+        // Thumbnail
+        const img = a.querySelector('img') || card.querySelector('img');
+        const thumbnail = img?.src || '';
+
+        // Title / Description
+        const title = img?.alt || a.getAttribute('title') || card.querySelector('[data-e2e="user-post-item-desc"]')?.innerText || 'TikTok Video';
+
+        // Views count from card overlay
+        const viewEl = card.querySelector('[data-e2e="video-views"]') || card.querySelector('strong') || card.querySelector('[class*="VideoCount"]');
+        const viewCount = parseCount(viewEl?.innerText);
+
+        foundMap.set(vid, {
+          id: vid,
+          title: title || 'TikTok Video',
+          description: title || '',
+          thumbnail: thumbnail,
+          viewCount: viewCount,
+          likeCount: 0,
+          commentCount: 0,
+          shareCount: 0,
+          webpage_url: cleanUrl,
+          url: cleanUrl,
+          uploader: uploader || '',
+          uploader_id: uploaderId || ''
+        });
       }
     }
   }
@@ -106,6 +147,7 @@ async function startAutoScrollScrape(targetLimit = 30) {
   createProgressOverlay();
   updateOverlay('Đang cuộn trang thu thập video...', 0, targetLimit);
 
+  const meta = getChannelMetadata();
   const allVideos = new Map();
   let idleScrolls = 0;
   const maxIdleScrolls = 5;
@@ -116,12 +158,12 @@ async function startAutoScrollScrape(targetLimit = 30) {
   await wait(1500);
 
   while (allVideos.size < targetLimit && idleScrolls < maxIdleScrolls) {
-    const currentBatch = extractVideoLinks();
+    const currentBatch = extractVideoItems(meta.uploader, meta.uploaderId);
     let newItemsFound = 0;
 
-    for (const [vid, url] of currentBatch.entries()) {
+    for (const [vid, item] of currentBatch.entries()) {
       if (!allVideos.has(vid)) {
-        allVideos.set(vid, url);
+        allVideos.set(vid, item);
         newItemsFound++;
         if (allVideos.size >= targetLimit) break;
       }
@@ -154,15 +196,16 @@ async function startAutoScrollScrape(targetLimit = 30) {
   }
 
   // Final check
-  const meta = getChannelMetadata();
-  const videoUrls = Array.from(allVideos.values());
+  const videoItems = Array.from(allVideos.values());
+  const videoUrls = videoItems.map(v => v.webpage_url || v.url);
 
-  updateOverlay('Hoàn tất! Đang chuyển dữ liệu về Web Tool...', videoUrls.length, targetLimit);
+  updateOverlay('Hoàn tất! Đang chuyển dữ liệu về Web Tool...', videoItems.length, targetLimit);
   await wait(600);
 
   chrome.runtime.sendMessage({
     action: 'SCRAPE_FINISHED',
-    videos: videoUrls,
+    videos: videoItems,
+    videoUrls: videoUrls,
     uploader: meta.uploader,
     uploaderId: meta.uploaderId,
     avatar: meta.avatar

@@ -267,26 +267,79 @@ function App() {
           throw new Error('Extension không tìm thấy video nào trên kênh này.');
         }
 
-        setLoadingMsg(`Extension đã thu thập ${result.videos.length} video! Đang bóc tách số liệu & chỉ số Trend...`);
-
-        // Fetch detailed metrics for all scraped video URLs
-        const batchRes = await fetch('/api/batch-video-info', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ urls: result.videos, proxy })
+        // Normalize scraped videos from Extension (support both rich objects and URL strings)
+        const rawItems = result.videos;
+        const normalizedVideos = rawItems.map((item, idx) => {
+          if (typeof item === 'object' && item !== null) {
+            return {
+              id: item.id || `vid_${idx}_${Date.now()}`,
+              title: item.title || 'TikTok Video',
+              description: item.description || item.title || '',
+              thumbnail: item.thumbnail || result.avatar || 'https://www.w3schools.com/howto/img_avatar.png',
+              duration: item.duration || null,
+              viewCount: Number(item.viewCount) || 0,
+              likeCount: Number(item.likeCount) || 0,
+              commentCount: Number(item.commentCount) || 0,
+              shareCount: Number(item.shareCount) || 0,
+              webpage_url: item.webpage_url || item.url || '',
+              url: item.webpage_url || item.url || '',
+              uploader: item.uploader || result.uploader || channelInput,
+              uploader_id: item.uploader_id || result.uploaderId || channelInput
+            };
+          } else {
+            const urlStr = String(item);
+            const vMatch = urlStr.match(/\/video\/(\d+)/);
+            const vId = vMatch ? vMatch[1] : `vid_${idx}_${Date.now()}`;
+            return {
+              id: vId,
+              title: 'TikTok Video',
+              description: '',
+              thumbnail: result.avatar || 'https://www.w3schools.com/howto/img_avatar.png',
+              duration: null,
+              viewCount: 0,
+              likeCount: 0,
+              commentCount: 0,
+              shareCount: 0,
+              webpage_url: urlStr,
+              url: urlStr,
+              uploader: result.uploader || channelInput,
+              uploader_id: result.uploaderId || channelInput
+            };
+          }
         });
-        const batchData = await batchRes.json();
 
-        if (batchRes.ok && batchData.videos && batchData.videos.length > 0) {
-          setVideos(batchData.videos);
-          setChannelInfo({
-            name: result.uploader || batchData.videos[0]?.uploader || channelInput,
-            username: result.uploaderId || batchData.videos[0]?.uploader_id || channelInput,
-            avatar: result.avatar || batchData.videos[0]?.thumbnail || 'https://www.w3schools.com/howto/img_avatar.png'
-          });
-          showToast(`⚡ Đã quét thành công ${batchData.videos.length} video bằng Chrome Extension!`);
-        } else {
-          throw new Error(batchData.details || 'Không thể lấy thông tin chi tiết video.');
+        // Set channel profile
+        setChannelInfo({
+          name: result.uploader || normalizedVideos[0]?.uploader || channelInput,
+          username: result.uploaderId || normalizedVideos[0]?.uploader_id || channelInput,
+          avatar: result.avatar || normalizedVideos[0]?.thumbnail || 'https://www.w3schools.com/howto/img_avatar.png'
+        });
+
+        // Render videos immediately!
+        setVideos(normalizedVideos);
+        showToast(`⚡ Quét thành công ${normalizedVideos.length} video bằng Chrome Extension!`);
+
+        // Optional non-blocking background enrichment for detailed like/comment counts
+        const urlsToEnrich = normalizedVideos.map(v => v.webpage_url).filter(Boolean);
+        if (urlsToEnrich.length > 0) {
+          fetch('/api/batch-video-info', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ urls: urlsToEnrich, proxy })
+          })
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+              if (data && data.videos && data.videos.length > 0) {
+                const map = new Map(data.videos.map(v => [v.id, v]));
+                setVideos(prev => prev.map(v => {
+                  const enriched = map.get(v.id);
+                  return enriched ? { ...v, ...enriched } : v;
+                }));
+              }
+            })
+            .catch(() => {
+              // Ignore background enrichment error, videos are already visible
+            });
         }
       } catch (err) {
         console.error('Extension scan error:', err);

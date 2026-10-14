@@ -183,37 +183,17 @@ app.post('/api/video-info', async (req, res) => {
 app.post('/api/batch-video-info', async (req, res) => {
   const { urls, proxy = null } = req.body;
   if (!Array.isArray(urls) || urls.length === 0) {
-    return res.status(400).json({ error: 'Array of URLs is required' });
+    return res.json({ success: true, count: 0, videos: [] });
   }
 
   console.log(`[Batch] Fetching details for ${urls.length} videos...`);
   try {
+    // Fetch via TikWM concurrently without spawning heavy child processes
     const results = await Promise.all(
-      urls.map(async (url) => {
+      urls.slice(0, 50).map(async (url) => {
         try {
-          let details = await fetchVideoInfoFromTikWM(url);
-          if (!details) {
-            try {
-              const data = await ytdlp.getVideoInfo(url, proxy);
-              details = {
-                id: data.id,
-                title: data.title || data.description || 'No Title',
-                description: data.description || '',
-                thumbnail: data.thumbnail || (data.thumbnails?.[0]?.url) || null,
-                duration: data.duration || null,
-                viewCount: data.view_count || null,
-                likeCount: data.like_count || null,
-                commentCount: data.comment_count || null,
-                shareCount: data.share_count || null,
-                uploader: data.uploader || null,
-                uploader_id: data.uploader_id || null,
-                webpage_url: data.webpage_url
-              };
-            } catch (_) {}
-          }
-          return details;
-        } catch (err) {
-          console.warn(`[Batch] Error fetching ${url}:`, err.message);
+          return await fetchVideoInfoFromTikWM(url);
+        } catch (_) {
           return null;
         }
       })
@@ -222,8 +202,8 @@ app.post('/api/batch-video-info', async (req, res) => {
     const videos = results.filter(Boolean);
     res.json({ success: true, count: videos.length, videos });
   } catch (err) {
-    console.error('[Batch] Failed:', err);
-    res.status(500).json({ error: 'Failed to fetch batch video info', details: err.message });
+    console.error('[Batch] Failed:', err.message);
+    res.json({ success: false, count: 0, videos: [], error: err.message });
   }
 });
 
