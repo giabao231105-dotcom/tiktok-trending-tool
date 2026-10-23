@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ZVibe TikTok Trending Helper",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Tiện ích kết nối ZVibe Web Tool và TikTok giúp tự động quét toàn bộ video kênh qua trình duyệt",
   "permissions": [
     "tabs",
@@ -33,8 +33,26 @@
         "https://www.tiktok.com/*",
         "https://tiktok.com/*"
       ],
+      "js": ["tiktok-interceptor.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://www.tiktok.com/*",
+        "https://tiktok.com/*"
+      ],
       "js": ["tiktok-scraper.js"],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["tiktok-interceptor.js"],
+      "matches": [
+        "https://www.tiktok.com/*",
+        "https://tiktok.com/*"
+      ]
     }
   ],
   "action": {

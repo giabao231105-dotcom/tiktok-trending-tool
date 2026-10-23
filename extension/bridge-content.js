@@ -12,7 +12,7 @@ function broadcastReady() {
     }
     window.postMessage({
       type: 'ZVIBE_EXTENSION_READY',
-      version: '2.1.0',
+      version: '2.2.0',
       timestamp: Date.now()
     }, '*');
   } catch (_) {
@@ -34,7 +34,7 @@ window.addEventListener('message', (event) => {
       if (!chrome.runtime?.id) return;
       window.postMessage({
         type: 'ZVIBE_PONG_EXTENSION',
-        version: '2.1.0'
+        version: '2.2.0'
       }, '*');
     } catch (_) {}
     return;

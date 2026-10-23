@@ -5,57 +5,6 @@ let overlayEl = null;
 let isScrapingActive = false;
 const itemDetailsCache = new Map();
 
-// Inject network interceptor to capture TikTok's /api/post/item_list and /item/detail responses
-function injectNetworkInterceptor() {
-  if (document.getElementById('zvibe-network-interceptor')) return;
-  const script = document.createElement('script');
-  script.id = 'zvibe-network-interceptor';
-  script.textContent = `
-    (function() {
-      if (window.__zvibe_interceptor_loaded) return;
-      window.__zvibe_interceptor_loaded = true;
-
-      // Hook fetch
-      const origFetch = window.fetch;
-      window.fetch = async function(...args) {
-        const response = await origFetch.apply(this, args);
-        try {
-          const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
-          if (url.includes('/api/post/item_list') || url.includes('/item/detail') || url.includes('/api/item/detail')) {
-            const clone = response.clone();
-            clone.json().then(data => {
-              window.postMessage({ type: 'ZVIBE_TIKTOK_API_DATA', data }, '*');
-            }).catch(function() {});
-          }
-        } catch (_) {}
-        return response;
-      };
-
-      // Hook XHR
-      const origOpen = XMLHttpRequest.prototype.open;
-      const origSend = XMLHttpRequest.prototype.send;
-      XMLHttpRequest.prototype.open = function(method, url) {
-        this._zvibeUrl = url;
-        return origOpen.apply(this, arguments);
-      };
-      XMLHttpRequest.prototype.send = function() {
-        this.addEventListener('load', function() {
-          try {
-            if (this._zvibeUrl && (this._zvibeUrl.includes('/api/post/item_list') || this._zvibeUrl.includes('/item/detail'))) {
-              const data = JSON.parse(this.responseText);
-              window.postMessage({ type: 'ZVIBE_TIKTOK_API_DATA', data }, '*');
-            }
-          } catch (_) {}
-        });
-        return origSend.apply(this, arguments);
-      };
-    })();
-  `;
-  (document.head || document.documentElement).appendChild(script);
-}
-
-injectNetworkInterceptor();
-
 // Parse TikTok Shop Anchor and extract product details
 function parseAnchorShop(item) {
   if (!item) return null;
@@ -110,6 +59,21 @@ function parseAnchorShop(item) {
         console.warn('[ZVibe Scraper] Anchor parse error:', err);
       }
     }
+  }
+
+  // Also check item.commerceInfo or item.shopping_info
+  if (item.commerceInfo || item.shopping_info || item.anchor) {
+    const c = item.commerceInfo || item.shopping_info || item.anchor;
+    return {
+      title: c.product_name || c.title || 'Sản phẩm TikTok Shop',
+      coverUrl: c.cover || c.image || item.video?.cover || null,
+      price: c.price || c.format_price || null,
+      productId: c.product_id || null,
+      seoUrl: c.url || null,
+      url: c.url || null,
+      isAffiliate: true,
+      source: 'TikTok Shop'
+    };
   }
 
   // Fallback to title keywords if caption explicitly mentions product
@@ -176,7 +140,7 @@ function readInitialDOMRehydration() {
   }
 }
 
-// Listen for intercepted network responses from TikTok
+// Listen for intercepted network responses from TikTok (from tiktok-interceptor.js in MAIN world)
 window.addEventListener('message', (e) => {
   if (e.data?.type === 'ZVIBE_TIKTOK_API_DATA' && e.data.data) {
     const data = e.data.data;
@@ -303,48 +267,106 @@ function parseCount(text) {
   return parseInt(clean, 10) || 0;
 }
 
+// Direct detection of shopping bag badge from video card DOM & caption
+function detectShopOnCard(card, title, cleanUrl, thumbnail) {
+  if (!card) return null;
+
+  // 1. Look for shopping bag icon on the card
+  // On TikTok, shopping badge is rendered on top of the thumbnail as an SVG or icon
+  const svgs = Array.from(card.querySelectorAll('svg'));
+  for (const svg of svgs) {
+    const html = svg.outerHTML || '';
+    const rect = svg.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    const isTopArea = cardRect.height > 0 ? ((rect.top - cardRect.top) < (cardRect.height * 0.45)) : true;
+
+    // Is it not the views/play icon (polygon) or pin icon?
+    const isPlay = html.includes('polygon') || /play/i.test(html);
+    const isPin = /pin|ghim/i.test(html) || /pin|ghim/i.test(svg.parentElement?.innerText || '');
+
+    if (!isPlay && !isPin && isTopArea) {
+      return {
+        title: 'Sản phẩm TikTok Shop (Gắn trong video)',
+        coverUrl: thumbnail || null,
+        price: null,
+        url: cleanUrl,
+        seoUrl: cleanUrl,
+        isAffiliate: true,
+        source: 'TikTok Shop'
+      };
+    }
+  }
+
+  // 2. Look for round icon badges on top left/right of card
+  const overlays = card.querySelectorAll('div, span');
+  for (const el of overlays) {
+    if (el.children.length === 1 && el.querySelector('svg')) {
+      const eRect = el.getBoundingClientRect();
+      const cRect = card.getBoundingClientRect();
+      if (
+        (eRect.top - cRect.top) < 45 && 
+        (eRect.left - cRect.left) < 45 && 
+        eRect.width > 12 && 
+        eRect.width < 50
+      ) {
+        const text = el.innerText || '';
+        if (!/ghim|pin/i.test(text)) {
+          return {
+            title: 'Sản phẩm TikTok Shop (Gắn trong video)',
+            coverUrl: thumbnail || null,
+            price: null,
+            url: cleanUrl,
+            seoUrl: cleanUrl,
+            isAffiliate: true,
+            source: 'TikTok Shop'
+          };
+        }
+      }
+    }
+  }
+
+  // 3. Fallback to title keywords (expanded to cover unbox, review, products)
+  const lower = (title || '').toLowerCase();
+  if (/giỏ hàng|tiktokshop|tiktok shop|sản phẩm|mua tại|gắn ở góc|link mua|bấm vào giỏ|#unbox|#unboxing|#review|#haul|#bagsmart|#bioverse|#carslan|#butdeli/i.test(lower)) {
+    const match = lower.match(/(?:mua tại|giỏ hàng|sản phẩm)[:\s]+([^#\n.]+)/i);
+    return {
+      title: match ? match[1].trim() : 'Sản phẩm gắn Giỏ hàng TikTok Shop',
+      coverUrl: thumbnail || null,
+      price: null,
+      url: cleanUrl,
+      seoUrl: cleanUrl,
+      isAffiliate: true,
+      source: 'TikTok Shop'
+    };
+  }
+
+  return null;
+}
+
 // Extract unique video cards with rich metadata directly from the DOM & cache
 function extractVideoItems(uploader, uploaderId) {
-  // Confine search strictly to user post list grid to avoid grabbing sidebar or unrelated videos
+  // Confine search to user post list grid or main container
   const gridContainer = document.querySelector('[data-e2e="user-post-item-list"]') || 
                         document.querySelector('div[class*="DivItemContainerV2"]') || 
                         document.querySelector('div[class*="UserPostItemList"]') ||
                         document.querySelector('main');
   const rootScope = gridContainer || document.body;
-  const anchors = Array.from(rootScope.querySelectorAll('a[href*="/video/"]'));
+  // Capture BOTH video AND photo carousel posts (e.g. /video/123 or /photo/123)
+  const anchors = Array.from(rootScope.querySelectorAll('a[href*="/video/"], a[href*="/photo/"]'));
   const foundMap = new Map();
 
   for (const a of anchors) {
     const href = a.href || '';
-    const match = href.match(/\/video\/(\d+)/);
+    const match = href.match(/\/(video|photo)\/(\d+)/);
     if (match) {
-      const vid = match[1];
-
-      // Smart author & repost verification:
-      const linkAuthorMatch = href.match(/tiktok\.com\/@([a-zA-Z0-9_.-]+)\/video/i);
-      if (linkAuthorMatch && uploaderId) {
-        const linkAuthor = linkAuthorMatch[1].toLowerCase().replace('@', '');
-        const targetAuthor = uploaderId.toLowerCase().replace('@', '');
-        const isNumericId = /^\d+$/.test(linkAuthor);
-
-        // If linkAuthor is a distinct username (not numeric ID) and does NOT match targetAuthor:
-        if (!isNumericId && linkAuthor !== targetAuthor) {
-          // Check if card has explicit repost badge or text
-          const card = a.closest('[data-e2e="user-post-item"]') || a.closest('div[class*="DivItemContainer"]') || a.parentElement || a;
-          const isRepost = card.querySelector('[data-e2e*="repost"]') || 
-                           card.querySelector('[class*="Repost"]') || 
-                           /đã đăng lại|repost/i.test(card.innerText || '');
-          if (isRepost || linkAuthor.length > 2) {
-            // Skip videos reposted or linked from other creators
-            continue;
-          }
-        }
-      }
+      const postType = match[1]; // 'video' or 'photo'
+      const vid = match[2];
 
       if (!foundMap.has(vid)) {
         // Construct clean, normalized URL with the correct username
-        const cleanUrl = uploaderId 
-          ? `https://www.tiktok.com/@${uploaderId.replace(/^@+/, '')}/video/${vid}` 
+        const cleanAuthor = (uploaderId || '').replace(/^@+/, '');
+        const cleanUrl = cleanAuthor 
+          ? `https://www.tiktok.com/@${cleanAuthor}/${postType}/${vid}` 
           : href.split('?')[0];
 
         // Locate card container
@@ -365,9 +387,7 @@ function extractVideoItems(uploader, uploaderId) {
                        card.querySelector('[class*="VideoCount"]') ||
                        card.querySelector('[class*="PlayCount"]') ||
                        card.querySelector('[class*="count"]');
-        if (viewEl) {
-          viewText = viewEl.innerText || viewEl.textContent || '';
-        }
+        if (viewEl) viewText = viewEl.innerText || viewEl.textContent || '';
         if (!viewText) {
           const strongEl = a.querySelector('strong') || a.querySelector('span');
           if (strongEl) viewText = strongEl.innerText || '';
@@ -387,30 +407,9 @@ function extractVideoItems(uploader, uploaderId) {
           if (cached.stats.playCount) viewCount = cached.stats.playCount;
         }
 
-        // If not in cache, fallback to DOM anchor or caption
+        // If not in cache, detect directly from the card DOM & caption
         if (!shopProduct) {
-          const anchorEl = card.querySelector('[data-e2e*="anchor"]') || 
-                           card.querySelector('a[href*="/product/"]') || 
-                           card.querySelector('div[class*="Anchor"]') ||
-                           card.querySelector('[class*="shop"]') ||
-                           card.querySelector('[class*="product"]');
-          const anchorImg = anchorEl ? anchorEl.querySelector('img') : null;
-          const anchorText = anchorEl ? anchorEl.innerText.trim() : null;
-          const caption = (title || '').toLowerCase();
-          const hasShopMention = !!anchorText || /giỏ hàng|tiktokshop|tiktok shop|sản phẩm|mua tại/i.test(caption);
-
-          if (anchorText || hasShopMention) {
-            const match = (title || '').match(/(?:mua tại|giỏ hàng|sản phẩm)[:\s]+([^#\n.]+)/i);
-            shopProduct = {
-              title: anchorText || (match ? match[1].trim() : 'Sản phẩm Giỏ hàng TikTok Shop'),
-              coverUrl: anchorImg?.src || thumbnail || null,
-              price: null,
-              url: cleanUrl,
-              seoUrl: cleanUrl,
-              isAffiliate: true,
-              source: 'TikTok Shop'
-            };
-          }
+          shopProduct = detectShopOnCard(card, title, cleanUrl, thumbnail);
         }
 
         foundMap.set(vid, {
@@ -425,8 +424,8 @@ function extractVideoItems(uploader, uploaderId) {
           duration: cached?.duration || null,
           webpage_url: cleanUrl,
           url: cleanUrl,
-          uploader: uploader || '',
-          uploader_id: uploaderId || '',
+          uploader: uploader || cleanAuthor || '',
+          uploader_id: cleanAuthor || '',
           shopProduct: shopProduct
         });
       }
@@ -479,8 +478,8 @@ async function startAutoScrollScrape(targetLimit = 30) {
   const meta = getChannelMetadata();
   const allVideos = new Map();
   let idleScrolls = 0;
-  // If no new videos found for 6 consecutive scrolls, channel has ended!
-  const maxIdleScrolls = 6;
+  // Generous idle scroll allowance to ensure final batch is never missed
+  const maxIdleScrolls = 8;
 
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -503,13 +502,6 @@ async function startAutoScrollScrape(targetLimit = 30) {
     // 2. Incorporate from intercepted network cache as well (handles virtualized DOM unmounting)
     for (const [vid, cached] of itemDetailsCache.entries()) {
       if (!allVideos.has(vid)) {
-        if (cached.author && meta.uploaderId) {
-          const cAuthor = cached.author.toLowerCase().replace('@', '');
-          const tAuthor = meta.uploaderId.toLowerCase().replace('@', '');
-          if (cAuthor !== tAuthor && !/^\d+$/.test(cAuthor)) {
-            continue;
-          }
-        }
         const cleanUrl = meta.uploaderId 
           ? `https://www.tiktok.com/@${meta.uploaderId.replace(/^@+/, '')}/video/${vid}` 
           : `https://www.tiktok.com/video/${vid}`;
@@ -526,7 +518,7 @@ async function startAutoScrollScrape(targetLimit = 30) {
           duration: cached.duration || null,
           webpage_url: cleanUrl,
           url: cleanUrl,
-          uploader: meta.uploader || '',
+          uploader: meta.uploader || meta.uploaderId || '',
           uploader_id: meta.uploaderId || '',
           shopProduct: cached.shopProduct || null
         });
@@ -576,8 +568,9 @@ async function startAutoScrollScrape(targetLimit = 30) {
       behavior: 'instant'
     });
 
-    // STEP 2: Scroll the very last video element into viewport to trigger TikTok IntersectionObserver
-    const allCards = document.querySelectorAll('[data-e2e="user-post-item"]') || document.querySelectorAll('a[href*="/video/"]');
+    // STEP 2: Scroll the very last card element into viewport to trigger IntersectionObserver
+    const allCards = document.querySelectorAll('[data-e2e="user-post-item"]') || 
+                     document.querySelectorAll('a[href*="/video/"], a[href*="/photo/"]');
     if (allCards.length > 0) {
       try {
         allCards[allCards.length - 1].scrollIntoView({ behavior: 'instant', block: 'end' });
@@ -586,18 +579,17 @@ async function startAutoScrollScrape(targetLimit = 30) {
 
     // Dispatch scroll & wheel events
     window.dispatchEvent(new Event('scroll'));
-    window.dispatchEvent(new WheelEvent('wheel', { deltaY: 1000 }));
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: 1200 }));
 
-    // STEP 3: Wait for TikTok's network response
-    await wait(1200 + Math.floor(Math.random() * 300));
+    // Wait for network response (1500ms)
+    await wait(1400 + Math.floor(Math.random() * 300));
 
-    // STEP 4: Scroll jiggle (scroll up 300px then down 400px) to re-trigger IntersectionObserver
-    window.scrollBy({ top: -300, behavior: 'instant' });
-    await wait(180);
-    window.scrollBy({ top: 400, behavior: 'instant' });
+    // Jiggle to force IntersectionObserver
+    window.scrollBy({ top: -350, behavior: 'instant' });
+    await wait(200);
+    window.scrollBy({ top: 450, behavior: 'instant' });
     window.dispatchEvent(new Event('scroll'));
 
-    // Wait for DOM cards to render
     await wait(800 + Math.floor(Math.random() * 200));
   }
 

@@ -313,8 +313,8 @@ function App() {
             };
           } else {
             const urlStr = String(item);
-            const vMatch = urlStr.match(/\/video\/(\d+)/);
-            const vId = vMatch ? vMatch[1] : `vid_${idx}_${Date.now()}`;
+            const vMatch = urlStr.match(/\/(video|photo)\/(\d+)/);
+            const vId = vMatch ? vMatch[2] : `vid_${idx}_${Date.now()}`;
             return {
               id: vId,
               title: 'TikTok Video',
@@ -849,14 +849,15 @@ function App() {
         .then(res => res.ok ? res.json() : null)
         .then(data => {
           if (data && data.success && data.video) {
+            const enrichedShop = data.video.shopProduct || video.shopProduct;
             setSelectedVideo(prev => ({
               ...prev,
               ...data.video,
-              shopProduct: data.video.shopProduct || prev?.shopProduct
+              shopProduct: enrichedShop || prev?.shopProduct
             }));
-            // Update in videos / singleVideos list
-            setVideos(prevList => prevList.map(v => (v.id === video.id || v.webpage_url === targetUrl) ? { ...v, ...data.video } : v));
-            setSingleVideos(prevList => prevList.map(v => (v.id === video.id || v.webpage_url === targetUrl) ? { ...v, ...data.video } : v));
+            // Update in videos / singleVideos list without wiping existing shopProduct
+            setVideos(prevList => prevList.map(v => (v.id === video.id || v.webpage_url === targetUrl) ? { ...v, ...data.video, shopProduct: data.video.shopProduct || v.shopProduct } : v));
+            setSingleVideos(prevList => prevList.map(v => (v.id === video.id || v.webpage_url === targetUrl) ? { ...v, ...data.video, shopProduct: data.video.shopProduct || v.shopProduct } : v));
           }
         })
         .catch(() => {});
