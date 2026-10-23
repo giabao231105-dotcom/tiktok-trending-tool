@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ZVibe TikTok Trending Helper",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Tiện ích kết nối ZVibe Web Tool và TikTok giúp tự động quét toàn bộ video kênh qua trình duyệt",
   "permissions": [
     "tabs",

@@ -264,7 +264,13 @@ function parseCount(text) {
 
 // Extract unique video cards with rich metadata directly from the DOM & cache
 function extractVideoItems(uploader, uploaderId) {
-  const anchors = Array.from(document.querySelectorAll('a[href*="/video/"]'));
+  // Confine search strictly to user post list grid to avoid grabbing sidebar or reposted videos
+  const gridContainer = document.querySelector('[data-e2e="user-post-item-list"]') || 
+                        document.querySelector('div[class*="DivItemContainerV2"]') || 
+                        document.querySelector('div[class*="UserPostItemList"]') ||
+                        document.querySelector('main');
+  const rootScope = gridContainer || document.body;
+  const anchors = Array.from(rootScope.querySelectorAll('a[href*="/video/"]'));
   const foundMap = new Map();
 
   for (const a of anchors) {
@@ -272,8 +278,24 @@ function extractVideoItems(uploader, uploaderId) {
     const match = href.match(/\/video\/(\d+)/);
     if (match) {
       const vid = match[1];
+
+      // Strict author verification:
+      // If the link explicitly has an @username and it doesn't match uploaderId, skip it!
+      const linkAuthorMatch = href.match(/tiktok\.com\/@([a-zA-Z0-9_.-]+)\/video/i);
+      if (linkAuthorMatch && uploaderId) {
+        const linkAuthor = linkAuthorMatch[1].toLowerCase().replace('@', '');
+        const targetAuthor = uploaderId.toLowerCase().replace('@', '');
+        if (linkAuthor !== targetAuthor) {
+          // Skip videos reposted or linked from other accounts
+          continue;
+        }
+      }
+
       if (!foundMap.has(vid)) {
-        const cleanUrl = href.split('?')[0];
+        // Construct clean, normalized URL with the correct username
+        const cleanUrl = uploaderId 
+          ? `https://www.tiktok.com/@${uploaderId.replace(/^@+/, '')}/video/${vid}` 
+          : href.split('?')[0];
 
         // Locate card container
         const card = a.closest('[data-e2e="user-post-item"]') || a.closest('div[class*="DivItemContainer"]') || a.parentElement || a;
@@ -334,6 +356,7 @@ function extractVideoItems(uploader, uploaderId) {
               coverUrl: anchorImg?.src || thumbnail || null,
               price: null,
               url: cleanUrl,
+              seoUrl: cleanUrl,
               isAffiliate: true,
               source: 'TikTok Shop'
             };
@@ -368,24 +391,29 @@ function getChannelMetadata() {
   let avatar = '';
   let uploaderId = '';
 
-  const titleEl = document.querySelector('[data-e2e="user-title"]') || document.querySelector('h1') || document.querySelector('h2');
-  if (titleEl) uploader = titleEl.innerText.trim();
-
-  const subEl = document.querySelector('[data-e2e="user-subtitle"]');
-  if (subEl) uploaderId = subEl.innerText.replace('@', '').trim();
-
-  if (!uploaderId) {
-    const pathParts = window.location.pathname.split('/');
-    for (const p of pathParts) {
-      if (p.startsWith('@')) {
-        uploaderId = p.replace('@', '');
-        break;
-      }
+  const pathParts = window.location.pathname.split('/');
+  for (const p of pathParts) {
+    if (p.startsWith('@')) {
+      uploaderId = p.replace('@', '').trim();
+      break;
     }
   }
 
-  const avatarEl = document.querySelector('[data-e2e="user-avatar"] img') || document.querySelector('img[src*="tiktokcdn"]');
-  if (avatarEl) avatar = avatarEl.src;
+  const subEl = document.querySelector('[data-e2e="user-subtitle"]');
+  if (subEl) {
+    const text = subEl.innerText.replace('@', '').trim();
+    if (text) uploaderId = text;
+  }
+
+  const titleEl = document.querySelector('[data-e2e="user-title"]') || document.querySelector('h1[data-e2e="user-title"]') || document.querySelector('h1');
+  if (titleEl) uploader = titleEl.innerText.trim();
+  if (!uploader) uploader = uploaderId;
+
+  const avatarEl = document.querySelector('[data-e2e="user-avatar"] img') || 
+                   document.querySelector('div[data-e2e="user-avatar"] img') || 
+                   document.querySelector('img[class*="ImgAvatar"]') ||
+                   document.querySelector('img[src*="tiktokcdn"]');
+  if (avatarEl && avatarEl.src) avatar = avatarEl.src;
 
   return { uploader: uploader || uploaderId, uploaderId, avatar };
 }

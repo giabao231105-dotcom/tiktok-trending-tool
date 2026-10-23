@@ -867,6 +867,14 @@ function App() {
     return `${num} lượt xem`;
   };
 
+  // Helper format generic number counts (likes, comments, shares)
+  const formatNumber = (num) => {
+    if (!num) return '0';
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return Number(num).toLocaleString();
+  };
+
   // Helper format durations
   const formatDuration = (seconds) => {
     if (!seconds) return '0:00';
@@ -2041,22 +2049,31 @@ function App() {
                 <div className="tt-player-creator-header">
                   <div className="tt-player-creator-info">
                     <img 
-                      src={selectedVideo.thumbnail || channelInfo?.avatar || 'https://www.w3schools.com/howto/img_avatar.png'} 
+                      src={channelInfo?.avatar || selectedVideo.uploader_avatar || 'https://www.w3schools.com/howto/img_avatar.png'} 
                       alt="creator" 
                       className="tt-player-creator-avatar" 
+                      onError={(e) => {
+                        e.currentTarget.src = 'https://www.w3schools.com/howto/img_avatar.png';
+                      }}
                     />
                     <div className="tt-player-creator-names">
                       <div className="tt-player-nickname">
-                        {selectedVideo.uploader || channelInfo?.name || selectedVideo.uploader_id || 'Creator'}
+                        {channelInfo?.name || selectedVideo.uploader || selectedVideo.uploader_id || 'Creator'}
                       </div>
                       <div className="tt-player-handle-date">
-                        @{selectedVideo.uploader_id || channelInfo?.username || 'user'} • {selectedVideo.duration ? formatDuration(selectedVideo.duration) : 'TikTok'}
+                        @{channelInfo?.username || selectedVideo.uploader_id || 'user'} • {selectedVideo.duration ? formatDuration(selectedVideo.duration) : 'TikTok'}
                       </div>
                     </div>
                   </div>
 
                   <a 
-                    href={selectedVideo.webpage_url || selectedVideo.url} 
+                    href={(() => {
+                      const uploader = (channelInfo?.username || selectedVideo.uploader_id || '').replace(/^@/, '');
+                      if (uploader && selectedVideo.id) {
+                        return `https://www.tiktok.com/@${uploader}/video/${selectedVideo.id}`;
+                      }
+                      return selectedVideo.webpage_url || selectedVideo.url;
+                    })()} 
                     target="_blank" 
                     rel="noreferrer"
                     className="btn btn-primary"
@@ -2172,12 +2189,12 @@ function App() {
                 <div className="tt-player-stats-row">
                   <div className="tt-stat-item" title="Lượt thích">
                     <span className="tt-stat-icon">❤️</span>
-                    <span>{formatViews(selectedVideo.likeCount || 0)}</span>
+                    <span>{formatNumber(selectedVideo.likeCount || 0)}</span>
                   </div>
 
                   <div className="tt-stat-item" title="Lượt bình luận">
                     <span className="tt-stat-icon">💬</span>
-                    <span>{formatViews(selectedVideo.commentCount || 0)}</span>
+                    <span>{formatNumber(selectedVideo.commentCount || 0)}</span>
                   </div>
 
                   <div className="tt-stat-item" title="Lượt xem">
@@ -2187,7 +2204,7 @@ function App() {
 
                   <div className="tt-stat-item" title="Lượt chia sẻ">
                     <span className="tt-stat-icon">🔗</span>
-                    <span>{formatViews(selectedVideo.shareCount || 0)}</span>
+                    <span>{formatNumber(selectedVideo.shareCount || 0)}</span>
                   </div>
                 </div>
 
@@ -2196,13 +2213,23 @@ function App() {
                   <input 
                     type="text" 
                     readOnly 
-                    value={selectedVideo.webpage_url || selectedVideo.url || ''} 
+                    value={(() => {
+                      const uploader = (channelInfo?.username || selectedVideo.uploader_id || '').replace(/^@/, '');
+                      if (uploader && selectedVideo.id) {
+                        return `https://www.tiktok.com/@${uploader}/video/${selectedVideo.id}`;
+                      }
+                      return selectedVideo.webpage_url || selectedVideo.url || '';
+                    })()} 
                     className="tt-copy-link-input" 
                   />
                   <button 
                     className="tt-copy-link-btn" 
                     onClick={() => {
-                      navigator.clipboard.writeText(selectedVideo.webpage_url || selectedVideo.url);
+                      const uploader = (channelInfo?.username || selectedVideo.uploader_id || '').replace(/^@/, '');
+                      const linkToCopy = (uploader && selectedVideo.id)
+                        ? `https://www.tiktok.com/@${uploader}/video/${selectedVideo.id}`
+                        : (selectedVideo.webpage_url || selectedVideo.url || '');
+                      navigator.clipboard.writeText(linkToCopy);
                       showToast('Đã sao chép link video TikTok!');
                     }}
                   >
