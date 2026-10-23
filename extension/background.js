@@ -14,11 +14,13 @@ async function handleScanChannel(request, sender, sendResponse) {
 
   // Normalize channel URL
   let targetUrl = (channelUrl || '').trim();
-  if (!targetUrl.startsWith('http')) {
-    const cleanUser = targetUrl.replace(/^@+/, '');
+  const usernameMatch = targetUrl.match(/(?:@|tiktok\.com\/@?)([a-zA-Z0-9_.-]+)/i);
+  if (usernameMatch) {
+    targetUrl = `https://www.tiktok.com/@${usernameMatch[1]}`;
+  } else if (!targetUrl.startsWith('http')) {
+    const cleanUser = targetUrl.replace(/^@+/, '').replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/^tiktok\.com\/?@?/, '');
     targetUrl = `https://www.tiktok.com/@${cleanUser}`;
   } else {
-    // If user provided a video link instead of channel profile, normalize or use as is
     targetUrl = targetUrl.split('?')[0].replace(/\/+$/, '');
   }
 
