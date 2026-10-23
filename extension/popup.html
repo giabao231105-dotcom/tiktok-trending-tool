@@ -3,116 +3,290 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ZVibe TikTok Helper</title>
+  <title>TikTok Studio Helper</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    body {
-      width: 320px;
-      padding: 16px;
-      background: #0f172a;
-      color: #f8fafc;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     }
+
+    body {
+      width: 340px;
+      padding: 18px 20px;
+      background: #ffffff;
+      color: #161823;
+      user-select: none;
+    }
+
+    /* Brand Header matching TikTok Studio Dashboard */
     .header {
       display: flex;
       align-items: center;
-      gap: 10px;
-      border-bottom: 1px solid #1e293b;
-      padding-bottom: 12px;
-      margin-bottom: 12px;
+      justify-content: space-between;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(22, 24, 35, 0.08);
+      margin-bottom: 14px;
     }
-    .icon {
-      width: 32px;
-      height: 32px;
-      background: linear-gradient(135deg, #6366f1, #a855f7);
-      border-radius: 8px;
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-icon-box {
+      width: 36px;
+      height: 36px;
+      background: #161823;
+      border-radius: 9px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
     }
-    .title {
+
+    .brand-names {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-title {
       font-size: 15px;
       font-weight: 700;
+      color: #161823;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      line-height: 1.2;
+    }
+
+    .brand-studio {
+      font-weight: 500;
+      color: #73747b;
+      font-size: 14px;
+    }
+
+    .brand-badge {
+      font-size: 9px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #FE2C55, #25F4EE);
       color: #ffffff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
     }
-    .subtitle {
-      font-size: 11px;
-      color: #94a3b8;
+
+    .version-pill {
+      font-size: 10px;
+      font-weight: 600;
+      background: rgba(22, 24, 35, 0.06);
+      color: #73747b;
+      padding: 3px 8px;
+      border-radius: 12px;
     }
+
+    /* Status card */
     .status-card {
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      padding: 10px 12px;
+      background: #f8fafc;
+      border: 1px solid rgba(22, 24, 35, 0.08);
+      border-radius: 10px;
+      padding: 10px 14px;
       margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .status-info {
       display: flex;
       align-items: center;
       gap: 8px;
       font-size: 12px;
+      font-weight: 600;
+      color: #15803d;
     }
-    .dot {
+
+    .status-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
       background: #22c55e;
-      box-shadow: 0 0 8px #22c55e;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+      animation: pulse 2s infinite;
     }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+
+    .status-badge-text {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    /* Action Buttons */
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      margin-bottom: 14px;
+    }
+
     .btn {
       width: 100%;
-      padding: 10px;
-      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      padding: 11px 16px;
       border: none;
       border-radius: 8px;
-      color: white;
-      font-weight: 600;
       font-size: 13px;
+      font-weight: 600;
       cursor: pointer;
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: opacity 0.2s;
+      justify-content: space-between;
+      transition: all 0.15s ease-in-out;
       text-decoration: none;
-      margin-bottom: 8px;
+      outline: none;
     }
-    .btn:hover { opacity: 0.9; }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    /* Primary Web Button */
+    .btn-primary {
+      background: #FE2C55;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(254, 44, 85, 0.25);
+    }
+
+    .btn-primary:hover {
+      background: #ef2950;
+      box-shadow: 0 4px 12px rgba(254, 44, 85, 0.35);
+    }
+
+    /* Secondary Localhost Button */
     .btn-secondary {
-      background: #334155;
-      color: #cbd5e1;
+      background: #ffffff;
+      color: #161823;
+      border: 1px solid rgba(22, 24, 35, 0.14);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     }
-    .info {
-      font-size: 11px;
+
+    .btn-secondary:hover {
+      background: #f8fafc;
+      border-color: rgba(22, 24, 35, 0.25);
+    }
+
+    .btn-content-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-secondary .btn-tag {
+      background: rgba(22, 24, 35, 0.06);
       color: #64748b;
-      line-height: 1.4;
+    }
+
+    /* Info card */
+    .info-card {
+      background: rgba(22, 24, 35, 0.03);
+      border: 1px solid rgba(22, 24, 35, 0.06);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: #73747b;
+    }
+
+    .info-card strong {
+      color: #161823;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 12px;
       text-align: center;
-      margin-top: 10px;
+      font-size: 10px;
+      color: #94a3b8;
     }
   </style>
 </head>
 <body>
+  <!-- Brand Header -->
   <div class="header">
-    <div class="icon">⚡</div>
-    <div>
-      <div class="title">ZVibe TikTok Helper</div>
-      <div class="subtitle">Trợ lý quét kênh & tải video TikTok</div>
+    <div class="brand-group">
+      <div class="brand-icon-box">
+        <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
+          <path d="M19.5 2C19.8 4.2 21.2 5.9 23.3 6.3V9.8C21.7 9.8 20.3 9.3 19.3 8.4V18.1C19.3 22.5 15.7 26 11.3 26C6.9 26 3.3 22.4 3.3 18C3.3 13.6 6.9 10 11.3 10C11.9 10 12.5 10.1 13 10.2V13.8C12.5 13.6 11.9 13.5 11.3 13.5C8.8 13.5 6.8 15.5 6.8 18C6.8 20.5 8.8 22.5 11.3 22.5C13.8 22.5 15.8 20.5 15.8 18V2H19.5Z" fill="#ffffff"/>
+          <path d="M19.5 2C19.8 4.2 21.2 5.9 23.3 6.3V9.8C21.7 9.8 20.3 9.3 19.3 8.4V18.1C19.3 22.5 15.7 26 11.3 26C6.9 26 3.3 22.4 3.3 18C3.3 13.6 6.9 10 11.3 10C11.9 10 12.5 10.1 13 10.2V13.8C12.5 13.6 11.9 13.5 11.3 13.5C8.8 13.5 6.8 15.5 6.8 18C6.8 20.5 8.8 22.5 11.3 22.5C13.8 22.5 15.8 20.5 15.8 18V2H19.5Z" fill="#FE2C55" style="transform: translate(1.2px, 1.2px); opacity: 0.85; mix-blend-mode: screen;"/>
+          <path d="M19.5 2C19.8 4.2 21.2 5.9 23.3 6.3V9.8C21.7 9.8 20.3 9.3 19.3 8.4V18.1C19.3 22.5 15.7 26 11.3 26C6.9 26 3.3 22.4 3.3 18C3.3 13.6 6.9 10 11.3 10C11.9 10 12.5 10.1 13 10.2V13.8C12.5 13.6 11.9 13.5 11.3 13.5C8.8 13.5 6.8 15.5 6.8 18C6.8 20.5 8.8 22.5 11.3 22.5C13.8 22.5 15.8 20.5 15.8 18V2H19.5Z" fill="#25F4EE" style="transform: translate(-1.2px, -1.2px); opacity: 0.85; mix-blend-mode: screen;"/>
+        </svg>
+      </div>
+      <div class="brand-names">
+        <div class="brand-title">
+          <span>TikTok</span>
+          <span class="brand-studio">Studio</span>
+          <span class="brand-badge">TRENDS</span>
+        </div>
+      </div>
     </div>
+    <span class="version-pill">v2.0.0</span>
   </div>
 
+  <!-- Live Connection Status -->
   <div class="status-card">
-    <div class="dot"></div>
-    <span>Tiện ích đang hoạt động 24/7</span>
+    <div class="status-info">
+      <div class="status-dot"></div>
+      <span>Đang kết nối & sẵn sàng</span>
+    </div>
+    <span class="status-badge-text">24/7 Service</span>
   </div>
 
-  <a href="https://tiktok-trending-tool.onrender.com" target="_blank" class="btn">
-    🚀 Mở ZVibe Trending Tool (Web)
-  </a>
+  <!-- Action Buttons -->
+  <div class="btn-group">
+    <!-- Button 1: Mở Localhost -->
+    <button id="btn-open-local" class="btn btn-secondary" title="Mở Dashboard chạy trực tiếp trên máy của bạn (localhost:3000)">
+      <div class="btn-content-left">
+        <span style="font-size: 16px;">💻</span>
+        <span>Mở Local (localhost:3000)</span>
+      </div>
+      <span class="btn-tag" id="local-status-tag">Mở tab ↗</span>
+    </button>
 
-  <a href="http://localhost:3000" target="_blank" class="btn btn-secondary">
-    💻 Mở Local (localhost:3000)
-  </a>
-
-  <div class="info">
-    Tiện ích sẽ tự động nhận lệnh khi bạn bấm <strong>"Bắt đầu quét kênh"</strong> trên trang Web ZVibe.
+    <!-- Button 2: Mở Web Render -->
+    <button id="btn-open-web" class="btn btn-primary" title="Mở Bản Web ZVibe trên Cloud (Render)">
+      <div class="btn-content-left">
+        <span style="font-size: 16px;">🚀</span>
+        <span>Mở ZVibe Trending Tool (Web)</span>
+      </div>
+      <span class="btn-tag">Cloud ↗</span>
+    </button>
   </div>
+
+  <!-- Instructions note -->
+  <div class="info-card">
+    ⚡ <strong>Cơ chế tự động:</strong> Khi bạn bấm <strong>"Quét kênh"</strong> trên web, tiện ích sẽ tự động nhận lệnh, mở tab cào toàn bộ video và trả về kết quả ngay lập tức.
+  </div>
+
+  <div class="footer">
+    Z-Vibe TikTok Trending Helper Extension • v2.0.0
+  </div>
+
+  <!-- Popup Script Handler -->
+  <script src="popup.js"></script>
 </body>
 </html>
