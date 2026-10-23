@@ -863,15 +863,19 @@ function App() {
         .then(res => res.ok ? res.json() : null)
         .then(data => {
           if (data && data.success && data.video) {
-            const enrichedShop = data.video.shopProduct || video.shopProduct;
+            const isGenuineShop = (sp) => sp && (sp.productId || sp.isShop || (sp.url && sp.url.includes('shop.tiktok.com')));
+            const enrichedShop = data.video.shopProduct 
+              ? data.video.shopProduct 
+              : (isGenuineShop(video.shopProduct) ? video.shopProduct : null);
+
             setSelectedVideo(prev => ({
               ...prev,
               ...data.video,
-              shopProduct: enrichedShop || prev?.shopProduct
+              shopProduct: enrichedShop
             }));
-            // Update in videos / singleVideos list without wiping existing shopProduct
-            setVideos(prevList => prevList.map(v => (v.id === video.id || v.webpage_url === targetUrl) ? { ...v, ...data.video, shopProduct: data.video.shopProduct || v.shopProduct } : v));
-            setSingleVideos(prevList => prevList.map(v => (v.id === video.id || v.webpage_url === targetUrl) ? { ...v, ...data.video, shopProduct: data.video.shopProduct || v.shopProduct } : v));
+            // Update in videos / singleVideos list
+            setVideos(prevList => prevList.map(v => (v.id === video.id || v.webpage_url === targetUrl) ? { ...v, ...data.video, shopProduct: enrichedShop } : v));
+            setSingleVideos(prevList => prevList.map(v => (v.id === video.id || v.webpage_url === targetUrl) ? { ...v, ...data.video, shopProduct: enrichedShop } : v));
           }
         })
         .catch(() => {});
@@ -1865,7 +1869,7 @@ function App() {
 
         const shopProduct = selectedVideo.shopProduct || (() => {
           const title = (selectedVideo.title || selectedVideo.description || '').toLowerCase();
-          if (/giỏ hàng|tiktokshop|tiktok shop|sản phẩm|mua tại/i.test(title)) {
+          if (/(?:mua tại giỏ hàng|link (?:ở|tại|trong) giỏ hàng|bấm vào giỏ hàng|gắn ở góc trái|mua tại tiktok\s*shop|giỏ hàng bên dưới|link mua bên dưới)/i.test(title)) {
             const match = title.match(/(?:mua tại|giỏ hàng|sản phẩm)[:\s]+([^#\n.]+)/i);
             return {
               title: match ? match[1].trim() : 'Sản phẩm được gắn trong Giỏ hàng',
@@ -2608,7 +2612,7 @@ function App() {
                     <polyline points="7 10 12 15 17 10"></polyline>
                     <line x1="12" y1="15" x2="12" y2="3"></line>
                   </svg>
-                  Tải xuống ZVibe Extension v2.2.0 (.ZIP)
+                  Tải xuống ZVibe Extension v2.2.1 (.ZIP)
                 </a>
               </div>
 

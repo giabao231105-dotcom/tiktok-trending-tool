@@ -121,28 +121,47 @@ async function fetchVideoInfoFromTikWM(videoUrl) {
     if (json.code === 0 && json.data) {
       console.log('TikWM metadata fetched successfully.');
       const d = json.data;
-      // Extract TikTok Shop product anchor if attached
+      // Extract TikTok Shop product anchor if attached (Strict validation)
       let shopProduct = null;
       if (d.anchors && Array.isArray(d.anchors) && d.anchors.length > 0) {
-        const p = d.anchors[0];
+        const shopAnchor = d.anchors.find(p => 
+          p.type === 33 || 
+          p.component_key === 'anchor_shop' || 
+          (p.url && /shop\.tiktok\.com|view\/product/i.test(p.url)) ||
+          (p.name && /tiktok\s*shop|giỏ hàng/i.test(p.name))
+        );
+        if (shopAnchor) {
+          shopProduct = {
+            productId: shopAnchor.id || shopAnchor.product_id || null,
+            title: shopAnchor.keyword || shopAnchor.name || 'Sản phẩm TikTok Shop',
+            type: 'Shop',
+            icon: '🛍️',
+            url: shopAnchor.url || shopAnchor.schema || videoUrl,
+            seoUrl: shopAnchor.url || (shopAnchor.id ? `https://shop.tiktok.com/vn/pdp/${shopAnchor.id}` : null),
+            isAffiliate: true,
+            source: 'TikTok Shop'
+          };
+        }
+      } 
+      
+      // Only accept commerce_info if it contains a verified product_id or active promotion
+      if (!shopProduct && d.commerce_info && (d.commerce_info.product_id || (d.commerce_info.adv_promoter && d.commerce_info.adv_promoter.trim() && d.commerce_info.has_commerce))) {
         shopProduct = {
-          title: p.keyword || p.name || 'Sản phẩm TikTok Shop',
-          type: p.type || 'Shop',
-          icon: p.icon || '🛍️',
-          url: p.url || p.schema || videoUrl,
-          isAffiliate: true
-        };
-      } else if (d.commerce_info) {
-        shopProduct = {
-          title: d.commerce_info.adv_promoter || 'Sản phẩm Giỏ hàng TikTok Shop',
+          productId: d.commerce_info.product_id || null,
+          title: d.commerce_info.adv_promoter || 'Sản phẩm TikTok Shop',
           type: 'Shop',
           icon: '🛍️',
           url: videoUrl,
-          isAffiliate: true
+          seoUrl: d.commerce_info.product_id ? `https://shop.tiktok.com/vn/pdp/${d.commerce_info.product_id}` : null,
+          isAffiliate: true,
+          source: 'TikTok Shop'
         };
-      } else {
+      }
+
+      // Caption CTA - ONLY explicit shopping cart phrases
+      if (!shopProduct) {
         const caption = (d.title || '').toLowerCase();
-        const hasShopMention = /giỏ hàng|tiktokshop|tiktok shop|sản phẩm|mua tại|gắn ở góc|link mua|bấm vào giỏ/i.test(caption);
+        const hasShopMention = /(?:mua tại giỏ hàng|link (?:ở|tại|trong) giỏ hàng|bấm vào giỏ hàng|gắn ở góc trái|mua tại tiktok\s*shop|giỏ hàng bên dưới|link mua bên dưới)/i.test(caption);
         if (hasShopMention) {
           const match = caption.match(/(?:mua tại|giỏ hàng|sản phẩm)[:\s]+([^#\n.]+)/i);
           shopProduct = {
@@ -225,12 +244,19 @@ async function extractTikTokVideoDetails(videoUrl) {
     const anchors = itemInfo.anchors || [];
 
     for (const anchor of anchors) {
+      // Must be anchor_shop or type 33
+      const isShopType = anchor.component_key === 'anchor_shop' || anchor.type === 33 || anchor.type === 40;
+      if (anchor.component_key === 'anchor_capcut' || anchor.type === 28 || /capcut/i.test(anchor.keyword || '')) {
+        continue;
+      }
+
       if (anchor.extra) {
         try {
           const parsedExtraList = typeof anchor.extra === 'string' ? JSON.parse(anchor.extra) : anchor.extra;
           if (Array.isArray(parsedExtraList)) {
             for (const item of parsedExtraList) {
-              if (item.component_key === 'anchor_shop' || item.type === 33 || item.keyword) {
+              const isShopItem = isShopType || item.component_key === 'anchor_shop' || item.type === 33 || (item.keyword && /shop|giỏ hàng/i.test(item.keyword));
+              if (isShopItem) {
                 let inner = {};
                 if (typeof item.extra === 'string') {
                   try { inner = JSON.parse(item.extra); } catch (_) {}
@@ -238,19 +264,39 @@ async function extractTikTokVideoDetails(videoUrl) {
                   inner = item.extra || {};
                 }
 
-                shopProduct = {
-                  productId: inner.product_id || item.id,
-                  title: inner.title || item.keyword || 'Sản phẩm TikTok Shop',
-                  coverUrl: inner.cover_url || (inner.img_url && inner.img_url[0]) || (anchor.icon?.urlList && anchor.icon.urlList[0]),
-                  seoUrl: inner.seo_url || (inner.product_id ? `https://shop.tiktok.com/vn/pdp/${inner.product_id}` : null),
-                  url: inner.seo_url || (inner.product_id ? `https://shop.tiktok.com/vn/pdp/${inner.product_id}` : null),
-                  source: inner.source || 'TikTok Shop',
-                  price: inner.price || null,
-                  currency: inner.currency || 'VND',
-                  isShop: true
-                };
-                break;
+                const productId = inner.product_id || item.id || anchor.id;
+                const title = inner.title || item.keyword || anchor.keyword;
+                if ((productId || title) && !/capcut/i.test(title || '')) {
+                  shopProduct = {
+                    productId: productId || null,
+                    title: title || 'Sản phẩm TikTok Shop',
+                    coverUrl: inner.cover_url || (inner.img_url && inner.img_url[0]) || (anchor.icon?.urlList && anchor.icon.urlList[0]),
+                    seoUrl: inner.seo_url || (productId ? `https://shop.tiktok.com/vn/pdp/${productId}` : null),
+                    url: inner.seo_url || (productId ? `https://shop.tiktok.com/vn/pdp/${productId}` : null),
+                    source: 'TikTok Shop',
+                    price: inner.price || null,
+                    currency: inner.currency || 'VND',
+                    isShop: true
+                  };
+                  break;
+                }
               }
+            }
+          } else if (typeof parsedExtraList === 'object' && parsedExtraList !== null && isShopType) {
+            const productId = parsedExtraList.product_id || anchor.id;
+            const title = parsedExtraList.title || anchor.keyword;
+            if ((productId || title) && !/capcut/i.test(title || '')) {
+              shopProduct = {
+                productId: productId || null,
+                title: title || 'Sản phẩm TikTok Shop',
+                coverUrl: parsedExtraList.cover_url || (anchor.icon?.urlList && anchor.icon.urlList[0]),
+                seoUrl: parsedExtraList.seo_url || (productId ? `https://shop.tiktok.com/vn/pdp/${productId}` : null),
+                url: parsedExtraList.seo_url || (productId ? `https://shop.tiktok.com/vn/pdp/${productId}` : null),
+                source: 'TikTok Shop',
+                price: parsedExtraList.price || null,
+                currency: parsedExtraList.currency || 'VND',
+                isShop: true
+              };
             }
           }
         } catch (_) {}
@@ -260,7 +306,7 @@ async function extractTikTokVideoDetails(videoUrl) {
 
     if (!shopProduct) {
       const desc = itemInfo.desc || '';
-      if (/giỏ hàng|tiktokshop|tiktok shop|sản phẩm|mua tại/i.test(desc)) {
+      if (/(?:mua tại giỏ hàng|link (?:ở|tại|trong) giỏ hàng|bấm vào giỏ hàng|gắn ở góc trái|mua tại tiktok\s*shop|giỏ hàng bên dưới|link mua bên dưới)/i.test(desc)) {
         const match = desc.match(/(?:mua tại|giỏ hàng|sản phẩm)[:\s]+([^#\n.]+)/i);
         shopProduct = {
           title: match ? match[1].trim() : 'Sản phẩm được gắn trong Giỏ hàng',

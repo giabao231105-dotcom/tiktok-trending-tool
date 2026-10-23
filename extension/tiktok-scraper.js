@@ -10,10 +10,16 @@ function parseAnchorShop(item) {
   if (!item) return null;
   const anchors = item.anchors || [];
   for (const anchor of anchors) {
+    // Stricter check: MUST be anchor_shop or type 33/40 or explicitly mentioning shop
     const isShop = anchor.component_key === 'anchor_shop' || 
                    anchor.type === 33 || 
-                   (anchor.keyword && /shop|sản phẩm|mua|giỏ hàng/i.test(anchor.keyword)) ||
-                   Boolean(anchor.extra);
+                   anchor.type === 40 ||
+                   (anchor.keyword && /tiktok\s*shop|giỏ hàng/i.test(anchor.keyword));
+
+    // Exclude CapCut, POI, Filter/Effects
+    if (anchor.component_key === 'anchor_capcut' || anchor.type === 28 || /capcut/i.test(anchor.keyword || '')) {
+      continue;
+    }
 
     if (isShop && anchor.extra) {
       try {
@@ -24,15 +30,16 @@ function parseAnchorShop(item) {
             if (typeof inner === 'string') {
               try { inner = JSON.parse(inner); } catch (_) {}
             }
-            if (inner.title || sub.keyword || anchor.keyword) {
+            const productId = inner.product_id || sub.id || anchor.id;
+            const title = inner.title || sub.keyword || anchor.keyword;
+            if ((productId || title) && !/capcut/i.test(title || '')) {
               const coverUrl = inner.cover_url || (inner.img_url && inner.img_url[0]) || (anchor.icon?.urlList && anchor.icon.urlList[0]) || null;
-              const productId = inner.product_id || sub.id || anchor.id;
               const seoUrl = inner.seo_url || (productId ? `https://shop.tiktok.com/vn/pdp/${productId}` : null);
               return {
-                title: inner.title || sub.keyword || anchor.keyword || 'Sản phẩm TikTok Shop',
+                title: title || 'Sản phẩm TikTok Shop',
                 coverUrl: coverUrl,
                 price: inner.price || inner.format_price || null,
-                productId: productId,
+                productId: productId || null,
                 seoUrl: seoUrl,
                 url: seoUrl,
                 isAffiliate: true,
@@ -41,19 +48,22 @@ function parseAnchorShop(item) {
             }
           }
         } else if (typeof extra === 'object' && extra !== null) {
-          const coverUrl = extra.cover_url || (extra.img_url && extra.img_url[0]) || (anchor.icon?.urlList && anchor.icon.urlList[0]) || null;
           const productId = extra.product_id || anchor.id;
-          const seoUrl = extra.seo_url || (productId ? `https://shop.tiktok.com/vn/pdp/${productId}` : null);
-          return {
-            title: extra.title || anchor.keyword || 'Sản phẩm TikTok Shop',
-            coverUrl: coverUrl,
-            price: extra.price || extra.format_price || null,
-            productId: productId,
-            seoUrl: seoUrl,
-            url: seoUrl,
-            isAffiliate: true,
-            source: 'TikTok Shop'
-          };
+          const title = extra.title || anchor.keyword;
+          if ((productId || title) && !/capcut/i.test(title || '')) {
+            const coverUrl = extra.cover_url || (extra.img_url && extra.img_url[0]) || (anchor.icon?.urlList && anchor.icon.urlList[0]) || null;
+            const seoUrl = extra.seo_url || (productId ? `https://shop.tiktok.com/vn/pdp/${productId}` : null);
+            return {
+              title: title || 'Sản phẩm TikTok Shop',
+              coverUrl: coverUrl,
+              price: extra.price || extra.format_price || null,
+              productId: productId || null,
+              seoUrl: seoUrl,
+              url: seoUrl,
+              isAffiliate: true,
+              source: 'TikTok Shop'
+            };
+          }
         }
       } catch (err) {
         console.warn('[ZVibe Scraper] Anchor parse error:', err);
@@ -61,24 +71,28 @@ function parseAnchorShop(item) {
     }
   }
 
-  // Also check item.commerceInfo or item.shopping_info
-  if (item.commerceInfo || item.shopping_info || item.anchor) {
-    const c = item.commerceInfo || item.shopping_info || item.anchor;
-    return {
-      title: c.product_name || c.title || 'Sản phẩm TikTok Shop',
-      coverUrl: c.cover || c.image || item.video?.cover || null,
-      price: c.price || c.format_price || null,
-      productId: c.product_id || null,
-      seoUrl: c.url || null,
-      url: c.url || null,
-      isAffiliate: true,
-      source: 'TikTok Shop'
-    };
+  // Only check item.commerceInfo if it has an actual product_id or product_name
+  if (item.commerceInfo || item.shopping_info) {
+    const c = item.commerceInfo || item.shopping_info;
+    const prodName = c.product_name || c.title;
+    const prodId = c.product_id || c.productId;
+    if (prodName || prodId) {
+      return {
+        title: prodName || 'Sản phẩm TikTok Shop',
+        coverUrl: c.cover || c.image || item.video?.cover || null,
+        price: c.price || c.format_price || null,
+        productId: prodId || null,
+        seoUrl: c.url || (prodId ? `https://shop.tiktok.com/vn/pdp/${prodId}` : null),
+        url: c.url || (prodId ? `https://shop.tiktok.com/vn/pdp/${prodId}` : null),
+        isAffiliate: true,
+        source: 'TikTok Shop'
+      };
+    }
   }
 
-  // Fallback to title keywords if caption explicitly mentions product
+  // Fallback to title keywords ONLY if caption explicitly mentions shopping cart CTA
   const title = item.desc || item.title || '';
-  if (/giỏ hàng|tiktokshop|tiktok shop|sản phẩm|mua tại/i.test(title)) {
+  if (/(?:mua tại giỏ hàng|link (?:ở|tại|trong) giỏ hàng|bấm vào giỏ hàng|gắn ở góc trái|mua tại tiktok\s*shop|giỏ hàng bên dưới|link mua bên dưới)/i.test(title)) {
     const match = title.match(/(?:mua tại|giỏ hàng|sản phẩm)[:\s]+([^#\n.]+)/i);
     return {
       title: match ? match[1].trim() : 'Sản phẩm gắn trong Giỏ hàng video',
@@ -275,63 +289,69 @@ function parseCount(text) {
 function detectShopOnCard(card, title, cleanUrl, thumbnail) {
   if (!card) return null;
 
-  // 1. Look for shopping bag icon on the card
-  // On TikTok, shopping badge is rendered on top of the thumbnail as an SVG or icon
-  const svgs = Array.from(card.querySelectorAll('svg'));
-  for (const svg of svgs) {
-    const html = svg.outerHTML || '';
-    const rect = svg.getBoundingClientRect();
-    const cardRect = card.getBoundingClientRect();
-    const isTopArea = cardRect.height > 0 ? ((rect.top - cardRect.top) < (cardRect.height * 0.45)) : true;
+  // IMPORTANT: For photo carousel posts (/photo/...), TikTok puts a multi-photo icon
+  // in the top corner of the card. NEVER use generic top-area SVG detection on photo posts!
+  const isPhotoPost = cleanUrl.includes('/photo/') || Boolean(card.querySelector('[data-e2e*="photo"]'));
 
-    // Is it not the views/play icon (polygon) or pin icon?
-    const isPlay = html.includes('polygon') || /play/i.test(html);
-    const isPin = /pin|ghim/i.test(html) || /pin|ghim/i.test(svg.parentElement?.innerText || '');
-
-    if (!isPlay && !isPin && isTopArea) {
-      return {
-        title: 'Sản phẩm TikTok Shop (Gắn trong video)',
-        coverUrl: thumbnail || null,
-        price: null,
-        url: cleanUrl,
-        seoUrl: cleanUrl,
-        isAffiliate: true,
-        source: 'TikTok Shop'
-      };
-    }
+  // 1. Look for genuine TikTok Shop badges on the card
+  // Check for elements or links with explicit shop / cart attributes
+  const shopEl = card.querySelector('[data-e2e*="shop"], [data-e2e*="cart"], [data-e2e*="commerce"], [class*="Shopping"], [class*="ShopBadge"], [class*="CartBadge"], a[href*="shop.tiktok.com"], a[href*="/view/product"]');
+  if (shopEl) {
+    const shopText = shopEl.innerText?.trim();
+    return {
+      title: shopText || 'Sản phẩm TikTok Shop (Gắn trong video)',
+      coverUrl: thumbnail || null,
+      price: null,
+      url: cleanUrl,
+      seoUrl: cleanUrl,
+      isAffiliate: true,
+      source: 'TikTok Shop'
+    };
   }
 
-  // 2. Look for round icon badges on top left/right of card
-  const overlays = card.querySelectorAll('div, span');
-  for (const el of overlays) {
-    if (el.children.length === 1 && el.querySelector('svg')) {
-      const eRect = el.getBoundingClientRect();
-      const cRect = card.getBoundingClientRect();
+  // Check SVGs with explicit shopping bag or cart path/aria-label/title (NOT photos/rectangles/play)
+  if (!isPhotoPost) {
+    const svgs = Array.from(card.querySelectorAll('svg'));
+    for (const svg of svgs) {
+      const html = (svg.outerHTML || '').toLowerCase();
+      const aria = (svg.getAttribute('aria-label') || '').toLowerCase();
+      const titleAttr = (svg.getAttribute('title') || '').toLowerCase();
+      
+      // Explicitly ignore photo/carousel icons, play icons, pin icons, view icons
       if (
-        (eRect.top - cRect.top) < 45 && 
-        (eRect.left - cRect.left) < 45 && 
-        eRect.width > 12 && 
-        eRect.width < 50
+        html.includes('polygon') || 
+        /play|views|count/i.test(html) ||
+        /pin|ghim/i.test(html) || 
+        /carousel|photo|album|image|slideshow/i.test(html) ||
+        /photo|album|multi/i.test(aria) ||
+        /photo|album|multi/i.test(titleAttr)
       ) {
-        const text = el.innerText || '';
-        if (!/ghim|pin/i.test(text)) {
-          return {
-            title: 'Sản phẩm TikTok Shop (Gắn trong video)',
-            coverUrl: thumbnail || null,
-            price: null,
-            url: cleanUrl,
-            seoUrl: cleanUrl,
-            isAffiliate: true,
-            source: 'TikTok Shop'
-          };
-        }
+        continue;
+      }
+
+      // Only match if the SVG specifically has shop/cart/bag indicators
+      const isExplicitShopSvg = 
+        /cart|shop|shopping|bag|store/i.test(html) || 
+        /cart|shop|giỏ|mua/i.test(aria) || 
+        /cart|shop|giỏ|mua/i.test(titleAttr);
+
+      if (isExplicitShopSvg) {
+        return {
+          title: 'Sản phẩm TikTok Shop (Gắn trong video)',
+          coverUrl: thumbnail || null,
+          price: null,
+          url: cleanUrl,
+          seoUrl: cleanUrl,
+          isAffiliate: true,
+          source: 'TikTok Shop'
+        };
       }
     }
   }
 
-  // 3. Fallback to title keywords (expanded to cover unbox, review, products)
+  // 2. Caption keywords - ONLY explicit shopping cart calls to action
   const lower = (title || '').toLowerCase();
-  if (/giỏ hàng|tiktokshop|tiktok shop|sản phẩm|mua tại|gắn ở góc|link mua|bấm vào giỏ|#unbox|#unboxing|#review|#haul|#bagsmart|#bioverse|#carslan|#butdeli/i.test(lower)) {
+  if (/(?:mua tại giỏ hàng|link (?:ở|tại|trong) giỏ hàng|bấm vào giỏ hàng|gắn ở góc trái|mua tại tiktok\s*shop|giỏ hàng bên dưới|link mua bên dưới)/i.test(lower)) {
     const match = lower.match(/(?:mua tại|giỏ hàng|sản phẩm)[:\s]+([^#\n.]+)/i);
     return {
       title: match ? match[1].trim() : 'Sản phẩm gắn Giỏ hàng TikTok Shop',
