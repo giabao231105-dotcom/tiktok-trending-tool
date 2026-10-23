@@ -822,356 +822,446 @@ function App() {
   };
 
   return (
-    <div className="app-container">
-      {/* Floating Extension Status Button */}
-      <button 
-        className="settings-trigger" 
-        style={{ 
-          right: '5.2rem', 
-          background: isExtensionActive ? 'rgba(34, 197, 94, 0.15)' : 'rgba(99, 102, 241, 0.15)',
-          borderColor: isExtensionActive ? 'rgba(34, 197, 94, 0.5)' : 'rgba(129, 140, 248, 0.4)' 
-        }}
-        onClick={() => setActiveModal('extension')} 
-        title={isExtensionActive ? "Extension đã kết nối (Click để xem chi tiết)" : "Cài đặt Extension vượt tường lửa TikTok"}
-      >
-        <span style={{ fontSize: '18px' }}>{isExtensionActive ? '🟢' : '⚡'}</span>
-      </button>
+    <div className="tt-app-wrapper">
+      {/* Top TikTok Desktop Navbar */}
+      <header className="tt-navbar">
+        <div className="tt-logo-group" onClick={() => setActiveTab('channel')}>
+          <div className="tt-logo-icon">
+            <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+              <path d="M19.5 2C19.8 4.2 21.2 5.9 23.3 6.3V9.8C21.7 9.8 20.3 9.3 19.3 8.4V18.1C19.3 22.5 15.7 26 11.3 26C6.9 26 3.3 22.4 3.3 18C3.3 13.6 6.9 10 11.3 10C11.9 10 12.5 10.1 13 10.2V13.8C12.5 13.6 11.9 13.5 11.3 13.5C8.8 13.5 6.8 15.5 6.8 18C6.8 20.5 8.8 22.5 11.3 22.5C13.8 22.5 15.8 20.5 15.8 18V2H19.5Z" fill="#161823"/>
+              <path d="M19.5 2C19.8 4.2 21.2 5.9 23.3 6.3V9.8C21.7 9.8 20.3 9.3 19.3 8.4V18.1C19.3 22.5 15.7 26 11.3 26C6.9 26 3.3 22.4 3.3 18C3.3 13.6 6.9 10 11.3 10C11.9 10 12.5 10.1 13 10.2V13.8C12.5 13.6 11.9 13.5 11.3 13.5C8.8 13.5 6.8 15.5 6.8 18C6.8 20.5 8.8 22.5 11.3 22.5C13.8 22.5 15.8 20.5 15.8 18V2H19.5Z" fill="#FE2C55" style={{ transform: 'translate(1.5px, 1.5px)', opacity: 0.85, mixBlendMode: 'screen' }}/>
+              <path d="M19.5 2C19.8 4.2 21.2 5.9 23.3 6.3V9.8C21.7 9.8 20.3 9.3 19.3 8.4V18.1C19.3 22.5 15.7 26 11.3 26C6.9 26 3.3 22.4 3.3 18C3.3 13.6 6.9 10 11.3 10C11.9 10 12.5 10.1 13 10.2V13.8C12.5 13.6 11.9 13.5 11.3 13.5C8.8 13.5 6.8 15.5 6.8 18C6.8 20.5 8.8 22.5 11.3 22.5C13.8 22.5 15.8 20.5 15.8 18V2H19.5Z" fill="#25F4EE" style={{ transform: 'translate(-1.5px, -1.5px)', opacity: 0.85, mixBlendMode: 'screen' }}/>
+            </svg>
+          </div>
+          <div className="tt-brand-name">
+            TikTok <span style={{ fontWeight: 500, color: 'var(--text-secondary)', fontSize: '18px' }}>Studio</span>
+            <span className="tt-brand-badge">TRENDS</span>
+          </div>
+        </div>
 
-      {/* Floating Settings Button */}
-      <button className="settings-trigger" onClick={() => setActiveModal('settings')} title="Cài đặt">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-        </svg>
-      </button>
+        {/* Center Search Pill */}
+        <div className="tt-search-container">
+          <form className="tt-search-pill" onSubmit={handleFetchChannel}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)' }}>
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input 
+              type="text" 
+              className="tt-search-input" 
+              placeholder="Tìm kiếm kênh (@username) hoặc dán link TikTok..."
+              value={channelInput}
+              onChange={(e) => setChannelInput(e.target.value)}
+            />
+            <button type="submit" className="tt-search-btn" title="Quét kênh">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+          </form>
+        </div>
 
-      {/* Header */}
-      <header className="header">
-        <h1>TikTok trending analysis</h1>
-        <p>Tải video không logo, lấy kịch bản và phân tích xu hướng kịch bản bằng Gemini AI</p>
+        {/* Right Action Buttons */}
+        <div className="tt-nav-actions">
+          <button 
+            className={`tt-pill-btn ${isExtensionActive ? 'extension-active' : ''}`}
+            onClick={() => setActiveModal('extension')}
+            title="Quản lý tiện ích Chrome Extension"
+          >
+            {isExtensionActive ? (
+              <>
+                <span className="tt-dot-pulse"></span>
+                <span>Extension đã kết nối</span>
+              </>
+            ) : (
+              <>
+                <span style={{ fontSize: '14px' }}>⚡</span>
+                <span>Cài Extension</span>
+              </>
+            )}
+          </button>
+
+          <button 
+            className="tt-icon-btn" 
+            onClick={() => setActiveModal('settings')} 
+            title="Cài đặt hệ thống (Gemini AI Key, Proxy...)"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
+        </div>
       </header>
 
-      {/* Navigation Tabs */}
-      <nav className="tabs-nav">
-        <button 
-          className={`tab-btn ${activeTab === 'channel' ? 'active' : ''}`}
-          onClick={() => setActiveTab('channel')}
-        >
-          Phân tích Kênh TikTok
-        </button>
-        <button 
-          className={`tab-btn ${activeTab === 'single' ? 'active' : ''}`}
-          onClick={() => setActiveTab('single')}
-        >
-          Gắn link video riêng
-        </button>
-        <button 
-          className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`}
-          onClick={() => setActiveTab('history')}
-        >
-          Lịch sử & Chi tiết ({history.length})
-        </button>
-      </nav>
-
-      {/* Loading Overlay */}
-      {isLoading && (
-        <div className="glass-card loading-container" style={{ marginBottom: '2rem' }}>
-          <div className="spinner"></div>
-          <p>{loadingMsg}</p>
-        </div>
-      )}
-
-      {/* Tab 1: Channel Analyzer */}
-      {activeTab === 'channel' && !isLoading && (
-        <div className="channel-section">
-          {/* Extension Status Banner */}
-          <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center' }}>
-            {isExtensionActive ? (
-              <div 
-                style={{ 
-                  display: 'inline-flex', 
-                  alignItems: 'center', 
-                  gap: '8px', 
-                  background: 'rgba(34, 197, 94, 0.12)', 
-                  border: '1px solid rgba(34, 197, 94, 0.35)', 
-                  borderRadius: '24px', 
-                  padding: '6px 16px', 
-                  fontSize: '0.88rem', 
-                  color: '#4ade80' 
-                }}
-              >
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 10px #22c55e' }}></span>
-                <span><strong>Đã kết nối Chrome Extension:</strong> Tự động mở kênh & quét sạch toàn bộ video không bị chặn!</span>
+      {/* 2-Column Desktop Body */}
+      <div className="tt-app-layout">
+        {/* Left Sidebar */}
+        <aside className="tt-sidebar">
+          <div className="tt-menu-section">
+            <button 
+              className={`tt-menu-item ${activeTab === 'channel' ? 'active' : ''}`}
+              onClick={() => setActiveTab('channel')}
+            >
+              <div className="tt-menu-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                  <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
               </div>
-            ) : (
-              <div 
-                onClick={() => setActiveModal('extension')}
-                style={{ 
-                  display: 'inline-flex', 
-                  alignItems: 'center', 
-                  gap: '10px', 
-                  background: 'linear-gradient(90deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.15))', 
-                  border: '1px solid rgba(129, 140, 248, 0.4)', 
-                  borderRadius: '24px', 
-                  padding: '6px 18px', 
-                  fontSize: '0.88rem', 
-                  color: '#c7d2fe',
-                  cursor: 'pointer',
-                  transition: 'transform 0.2s'
-                }}
-                title="Bấm để xem hướng dẫn cài đặt trong 10 giây"
-              >
-                <span>⚡ <strong>Khuyên dùng:</strong> Cài đặt <strong>ZVibe Chrome Extension</strong> để quét kênh tự động 100% qua trình duyệt</span>
-                <span style={{ textDecoration: 'underline', color: '#38bdf8', fontWeight: 600 }}>Cài đặt ngay &rarr;</span>
+              <span>Phân tích Kênh</span>
+            </button>
+
+            <button 
+              className={`tt-menu-item ${activeTab === 'single' ? 'active' : ''}`}
+              onClick={() => setActiveTab('single')}
+            >
+              <div className="tt-menu-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                </svg>
               </div>
-            )}
+              <span>Gắn link riêng</span>
+            </button>
+
+            <button 
+              className={`tt-menu-item ${activeTab === 'history' ? 'active' : ''}`}
+              onClick={() => setActiveTab('history')}
+            >
+              <div className="tt-menu-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              <span>Lịch sử phân tích</span>
+              {history.length > 0 && <span className="tt-badge-count">{history.length}</span>}
+            </button>
+
+            <div className="tt-sidebar-divider"></div>
+
+            <button 
+              className="tt-menu-item"
+              onClick={() => setActiveModal('extension')}
+            >
+              <div className="tt-menu-icon" style={{ color: isExtensionActive ? '#15803d' : '#FE2C55' }}>
+                ⚡
+              </div>
+              <span>Tiện ích Extension</span>
+            </button>
+
+            <button 
+              className="tt-menu-item"
+              onClick={() => setActiveModal('settings')}
+            >
+              <div className="tt-menu-icon">
+                ⚙️
+              </div>
+              <span>Cài đặt hệ thống</span>
+            </button>
           </div>
 
-          <form className="glass-card" onSubmit={handleFetchChannel}>
-            <div className="input-group">
-              <input 
-                type="text" 
-                className="form-control"
-                placeholder="Dán link kênh (ví dụ: tiktok.com/@vtv24news) hoặc dán link 1 video của kênh" 
-                value={channelInput}
-                onChange={(e) => setChannelInput(e.target.value)}
-              />
-              <select 
-                className="form-control" 
-                style={{ maxWidth: '120px' }}
-                value={limit}
-                onChange={(e) => setLimit(e.target.value)}
-              >
-                <option value="5">5 video</option>
-                <option value="12">12 video</option>
-                <option value="24">24 video</option>
-                <option value="50">50 video</option>
-                <option value="100">100 video</option>
-                <option value="all">Tất cả</option>
-              </select>
-              <button className="btn btn-primary" type="submit">Quét Kênh</button>
-            </div>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0.5rem 0 0 0' }}>
-              💡 Khi bấm <strong>"Quét Kênh"</strong>, tiện ích Extension sẽ tự động mở tab kênh TikTok và thu thập toàn bộ video trả về đây cho bạn!
+          <div className="tt-sidebar-footer">
+            <p>💡 <strong>Mẹo chuyên nghiệp:</strong></p>
+            <p style={{ marginTop: '4px' }}>
+              Cài tiện ích <strong>ZVibe Helper</strong> để quét trọn bộ video trực tiếp từ trình duyệt của bạn 100% không lo bị chặn!
             </p>
-          </form>
+          </div>
+        </aside>
 
-          {channelInfo && (
-            <div className="glass-card channel-info-card" style={{ marginTop: '2rem' }}>
-              <img className="channel-avatar" src={channelInfo.avatar} alt="avatar" />
-              <div className="channel-details">
-                <h2>{channelInfo.name}</h2>
-                <p>@{channelInfo.username}</p>
-              </div>
+        {/* Right Main Content */}
+        <main className="tt-main-content">
+          {/* Loading Overlay */}
+          {isLoading && (
+            <div className="loading-container" style={{ marginBottom: '24px' }}>
+              <div className="spinner"></div>
+              <p>{loadingMsg}</p>
             </div>
           )}
 
-          {videos.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              {/* Batch Action Toolbar */}
-              <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.95rem' }}>
-                    <input 
-                      type="checkbox"
-                      checked={videos.length > 0 && selectedChannelVideoIds.size === videos.length}
-                      onChange={() => handleSelectAll('channel')}
-                      style={{ width: '18px', height: '18px', accentColor: '#00f2fe', cursor: 'pointer' }}
-                    />
-                    <span>Chọn tất cả ({selectedChannelVideoIds.size}/{videos.length} video)</span>
-                  </label>
+          {/* Tab 1: Channel Analyzer */}
+          {activeTab === 'channel' && !isLoading && (
+            <div className="channel-section">
+              {/* Hero Search Card */}
+              <div className="tt-card" style={{ marginBottom: '20px' }}>
+                <div className="tt-section-header">
+                  <h2 className="tt-section-title">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tt-red)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    Quét & Phân Tích Kênh TikTok
+                  </h2>
+                  <p className="tt-section-subtitle">
+                    Nhập link kênh hoặc username để quét toàn bộ video, lọc nội dung thịnh hành và tải video không logo.
+                  </p>
                 </div>
 
-                <button 
-                  className="btn btn-primary"
-                  disabled={selectedChannelVideoIds.size === 0 || isZipping}
-                  onClick={() => handleDownloadBatchZip('channel')}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.25rem', fontSize: '0.9rem' }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="7 10 12 15 17 10"></polyline>
-                    <line x1="12" y1="15" x2="12" y2="3"></line>
-                  </svg>
-                  {isZipping ? (zipProgress || 'Đang đóng gói ZIP...') : `📦 Tải ${selectedChannelVideoIds.size} video đã chọn (.ZIP)`}
-                </button>
+                {/* Extension Status Banner */}
+                <div style={{ marginBottom: '14px' }}>
+                  {isExtensionActive ? (
+                    <div className="tt-banner-ext active">
+                      <span className="tt-dot-pulse"></span>
+                      <span><strong>Đã kết nối Chrome Extension:</strong> Tự động mở kênh & quét sạch video qua trình duyệt không bị chặn!</span>
+                    </div>
+                  ) : (
+                    <div className="tt-banner-ext suggest" onClick={() => setActiveModal('extension')}>
+                      <span>⚡ <strong>Khuyên dùng:</strong> Cài đặt <strong>ZVibe Chrome Extension</strong> để quét tự động 100% video</span>
+                      <span style={{ textDecoration: 'underline', fontWeight: 700 }}>Cài đặt (10s) &rarr;</span>
+                    </div>
+                  )}
+                </div>
+
+                <form onSubmit={handleFetchChannel}>
+                  <div className="input-group">
+                    <input 
+                      type="text" 
+                      className="form-control"
+                      placeholder="Dán link kênh (ví dụ: tiktok.com/@vtv24news) hoặc nhập @username" 
+                      value={channelInput}
+                      onChange={(e) => setChannelInput(e.target.value)}
+                    />
+                    <select 
+                      className="form-control" 
+                      style={{ maxWidth: '130px' }}
+                      value={limit}
+                      onChange={(e) => setLimit(e.target.value)}
+                    >
+                      <option value="5">5 video</option>
+                      <option value="12">12 video</option>
+                      <option value="24">24 video</option>
+                      <option value="50">50 video</option>
+                      <option value="100">100 video</option>
+                      <option value="all">Tất cả</option>
+                    </select>
+                    <button className="btn btn-primary" type="submit">
+                      Quét Kênh
+                    </button>
+                  </div>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
+                    💡 <strong>Mẹo:</strong> Bạn cũng có thể dán link 1 video bất kỳ của kênh vào ô tìm kiếm để hệ thống tự động bóc tách.
+                  </p>
+                </form>
               </div>
 
-              <div className="video-grid">
-                {videos.map(video => {
-                  const isSelected = selectedChannelVideoIds.has(video.id);
-                  return (
-                    <div className="video-card" key={video.id} style={{ position: 'relative' }}>
-                      {/* Checkbox overlay */}
-                      <div 
-                        style={{
-                          position: 'absolute',
-                          top: '10px',
-                          left: '10px',
-                          zIndex: 10,
-                          background: 'rgba(0, 0, 0, 0.75)',
-                          borderRadius: '6px',
-                          padding: '4px 6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          cursor: 'pointer',
-                          backdropFilter: 'blur(4px)',
-                          border: isSelected ? '1px solid #00f2fe' : '1px solid rgba(255, 255, 255, 0.2)'
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleSelect(video.id, 'channel');
-                        }}
-                        title="Tích chọn video này"
-                      >
-                        <input 
-                          type="checkbox" 
-                          checked={isSelected}
-                          onChange={() => {}}
-                          style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#00f2fe' }}
-                        />
+              {channelInfo && (
+                <div className="channel-info-card">
+                  <img className="channel-avatar" src={channelInfo.avatar} alt="avatar" />
+                  <div className="channel-details">
+                    <h2>{channelInfo.name}</h2>
+                    <p>@{channelInfo.username}</p>
+                    <div className="channel-stats">
+                      <div className="stat-item">
+                        <span>Tổng video:</span>
+                        <strong>{videos.length}</strong>
                       </div>
-
-                      <div 
-                        className="video-thumbnail-container"
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => {
-                          setSelectedVideo(video);
-                          setActiveModal('watch');
-                        }}
-                        title="Click để xem video"
-                      >
-                        <img className="video-thumbnail" src={video.thumbnail} alt={video.title} />
-                        <span className="video-views">{formatViews(video.viewCount)}</span>
-                        <span className="video-duration">{formatDuration(video.duration)}</span>
-                      </div>
-                      <div className="video-content">
-                        <div className="video-title" title={video.title}>{video.title}</div>
-                        <div className="video-actions">
-                          <button className="btn-action btn-action-download" onClick={() => handleDownload(video.url)}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                              <polyline points="7 10 12 15 17 10"></polyline>
-                              <line x1="12" y1="15" x2="12" y2="3"></line>
-                            </svg>
-                            Tải video
-                          </button>
-                          <button className="btn-action btn-action-script" onClick={() => handleGetScript(video)}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                              <polyline points="14 2 14 8 20 8"></polyline>
-                              <line x1="16" y1="13" x2="8" y2="13"></line>
-                              <line x1="16" y1="17" x2="8" y2="17"></line>
-                              <polyline points="10 9 9 9 8 9"></polyline>
-                            </svg>
-                            Lấy kịch bản
-                          </button>
-                          <button className="btn-action btn-action-analyze" onClick={() => handleAnalyze(video)}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                            </svg>
-                            Phân tích
-                          </button>
-                        </div>
+                      <div className="stat-item">
+                        <span>Lượt xem tổng:</span>
+                        <strong>{formatViews(videos.reduce((acc, v) => acc + (Number(v.viewCount) || 0), 0))}</strong>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                </div>
+              )}
+
+              {videos.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Batch Action Toolbar */}
+                  <div className="tt-toolbar">
+                    <label className="tt-checkbox-label">
+                      <input 
+                        type="checkbox"
+                        checked={videos.length > 0 && selectedChannelVideoIds.size === videos.length}
+                        onChange={() => handleSelectAll('channel')}
+                      />
+                      <span>Chọn tất cả ({selectedChannelVideoIds.size}/{videos.length} video)</span>
+                    </label>
+
+                    <button 
+                      className="btn btn-primary"
+                      disabled={selectedChannelVideoIds.size === 0 || isZipping}
+                      onClick={() => handleDownloadBatchZip('channel')}
+                      style={{ height: '38px', padding: '0 18px', fontSize: '13px' }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                      </svg>
+                      {isZipping ? (zipProgress || 'Đang nén ZIP...') : `📦 Tải ${selectedChannelVideoIds.size} video đã chọn (.ZIP)`}
+                    </button>
+                  </div>
+
+                  <div className="video-grid">
+                    {videos.map(video => {
+                      const isSelected = selectedChannelVideoIds.has(video.id);
+                      return (
+                        <div className="video-card" key={video.id}>
+                          {/* Checkbox overlay */}
+                          <div 
+                            className={`video-card-checkbox ${isSelected ? 'selected' : ''}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleSelect(video.id, 'channel');
+                            }}
+                            title="Tích chọn video này"
+                          >
+                            <input 
+                              type="checkbox" 
+                              checked={isSelected}
+                              onChange={() => {}}
+                            />
+                          </div>
+
+                          <div 
+                            className="video-thumbnail-container"
+                            onClick={() => {
+                              setSelectedVideo(video);
+                              setActiveModal('watch');
+                            }}
+                            title="Click để xem video"
+                          >
+                            <img className="video-thumbnail" src={video.thumbnail} alt={video.title} loading="lazy" />
+                            <span className="video-views">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                              </svg>
+                              {formatViews(video.viewCount)}
+                            </span>
+                            {video.duration ? <span className="video-duration">{formatDuration(video.duration)}</span> : null}
+                          </div>
+
+                          <div className="video-content">
+                            <div className="video-title" title={video.title}>{video.title}</div>
+                            <div className="video-actions">
+                              <button className="btn-action btn-action-download" onClick={() => handleDownload(video.url || video.webpage_url)} title="Tải video không logo">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                  <polyline points="7 10 12 15 17 10"></polyline>
+                                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                                Tải
+                              </button>
+                              <button className="btn-action btn-action-script" onClick={() => handleGetScript(video)} title="Lấy kịch bản thoại">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                  <polyline points="14 2 14 8 20 8"></polyline>
+                                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                                </svg>
+                                Kịch bản
+                              </button>
+                              <button className="btn-action btn-action-analyze" onClick={() => handleAnalyze(video)} title="Phân tích AI xu hướng">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                                </svg>
+                                AI
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
 
       {/* Tab 2: Single/Multiple Video Link Analyzer */}
       {activeTab === 'single' && !isLoading && (
-        <div className="single-section" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <form className="glass-card" onSubmit={handleFetchSingleVideos} style={{ padding: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-              <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', margin: 0 }}>
-                🔗 Nhập link video TikTok (Quét hàng loạt)
-              </h3>
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
-                onClick={handleAddLinkInput}
-                style={{ fontSize: '0.85rem', padding: '0.4rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-              >
-                <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#00f2fe', lineHeight: 1 }}>+</span> Thêm ô nhập link mới
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
-              {videoInputs.map((inputVal, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', width: '24px', textAlign: 'right', fontWeight: '600' }}>{idx + 1}.</span>
-                  <input 
-                    type="text" 
-                    className="form-control"
-                    placeholder={`Dán link video TikTok #${idx + 1} (ví dụ: https://www.tiktok.com/@user/video/...)`} 
-                    value={inputVal}
-                    onChange={(e) => handleLinkInputChange(idx, e.target.value)}
-                  />
-                  {videoInputs.length > 1 && (
-                    <button 
-                      type="button" 
-                      className="btn btn-secondary" 
-                      onClick={() => handleRemoveLinkInput(idx)}
-                      style={{ padding: '0.45rem 0.75rem', color: '#ff3860', borderColor: 'rgba(255, 56, 96, 0.3)' }}
-                      title="Xóa ô này"
-                    >
-                      ✕
-                    </button>
-                  )}
+        <div className="single-section" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="tt-card">
+            <div className="tt-section-header">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <h2 className="tt-section-title">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tt-red)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                    </svg>
+                    Quét Nhiều Video TikTok Cùng Lúc
+                  </h2>
+                  <p className="tt-section-subtitle">
+                    Dán danh sách các link video riêng lẻ để bóc tách thông tin, lấy số liệu và tải file ZIP không logo.
+                  </p>
                 </div>
-              ))}
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={handleAddLinkInput}
+                  style={{ height: '36px', padding: '0 14px', fontSize: '13px' }}
+                >
+                  <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--tt-red)', lineHeight: 1 }}>+</span> Thêm ô nhập link
+                </button>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
-                * Màn hình mặc định 3 ô nhập. Bấm nút (+) để mở rộng ô nhập không giới hạn.
-              </p>
-              <button className="btn btn-primary" type="submit" style={{ padding: '0.6rem 1.75rem' }}>
-                Quét tất cả video
-              </button>
-            </div>
-          </form>
+            <form onSubmit={handleFetchSingleVideos}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+                {videoInputs.map((inputVal, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', color: 'var(--text-muted)', width: '22px', textAlign: 'right', fontWeight: '600' }}>{idx + 1}.</span>
+                    <input 
+                      type="text" 
+                      className="form-control"
+                      placeholder={`Dán link video TikTok #${idx + 1} (https://www.tiktok.com/@user/video/...)`} 
+                      value={inputVal}
+                      onChange={(e) => handleLinkInputChange(idx, e.target.value)}
+                    />
+                    {videoInputs.length > 1 && (
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary" 
+                        onClick={() => handleRemoveLinkInput(idx)}
+                        style={{ height: '44px', width: '44px', padding: 0, color: 'var(--text-muted)' }}
+                        title="Xóa ô này"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
+                  💡 Bạn có thể bấm <strong>"+ Thêm ô nhập link"</strong> để phân tích cùng lúc không giới hạn số lượng video.
+                </p>
+                <button className="btn btn-primary" type="submit">
+                  Quét tất cả video
+                </button>
+              </div>
+            </form>
+          </div>
 
           {/* Scanned Video Results Grid */}
           {singleVideos.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-                <h3 style={{ fontSize: '1.2rem', color: 'var(--accent-cyan)', margin: 0 }}>
-                  Kết quả quét ({singleVideos.length} video):
-                </h3>
-              </div>
-
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {/* Batch Action Toolbar */}
-              <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.95rem' }}>
-                    <input 
-                      type="checkbox"
-                      checked={singleVideos.length > 0 && selectedSingleVideoIds.size === singleVideos.length}
-                      onChange={() => handleSelectAll('single')}
-                      style={{ width: '18px', height: '18px', accentColor: '#00f2fe', cursor: 'pointer' }}
-                    />
-                    <span>Chọn tất cả ({selectedSingleVideoIds.size}/{singleVideos.length} video)</span>
-                  </label>
-                </div>
+              <div className="tt-toolbar">
+                <label className="tt-checkbox-label">
+                  <input 
+                    type="checkbox"
+                    checked={singleVideos.length > 0 && selectedSingleVideoIds.size === singleVideos.length}
+                    onChange={() => handleSelectAll('single')}
+                  />
+                  <span>Chọn tất cả ({selectedSingleVideoIds.size}/{singleVideos.length} video)</span>
+                </label>
 
                 <button 
                   className="btn btn-primary"
                   disabled={selectedSingleVideoIds.size === 0 || isZipping}
                   onClick={() => handleDownloadBatchZip('single')}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1.25rem', fontSize: '0.9rem' }}
+                  style={{ height: '38px', padding: '0 18px', fontSize: '13px' }}
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="7 10 12 15 17 10"></polyline>
                     <line x1="12" y1="15" x2="12" y2="3"></line>
                   </svg>
-                  {isZipping ? (zipProgress || 'Đang đóng gói ZIP...') : `📦 Tải ${selectedSingleVideoIds.size} video đã chọn (.ZIP)`}
+                  {isZipping ? (zipProgress || 'Đang nén ZIP...') : `📦 Tải ${selectedSingleVideoIds.size} video đã chọn (.ZIP)`}
                 </button>
               </div>
 
@@ -1180,23 +1270,10 @@ function App() {
                   const vidId = vid.id || vid.webpage_url;
                   const isSelected = selectedSingleVideoIds.has(vidId);
                   return (
-                    <div className="video-card" key={i} style={{ position: 'relative' }}>
+                    <div className="video-card" key={i}>
                       {/* Checkbox overlay */}
                       <div 
-                        style={{
-                          position: 'absolute',
-                          top: '10px',
-                          left: '10px',
-                          zIndex: 10,
-                          background: 'rgba(0, 0, 0, 0.75)',
-                          borderRadius: '6px',
-                          padding: '4px 6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          cursor: 'pointer',
-                          backdropFilter: 'blur(4px)',
-                          border: isSelected ? '1px solid #00f2fe' : '1px solid rgba(255, 255, 255, 0.2)'
-                        }}
+                        className={`video-card-checkbox ${isSelected ? 'selected' : ''}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleToggleSelect(vidId, 'single');
@@ -1207,51 +1284,60 @@ function App() {
                           type="checkbox" 
                           checked={isSelected}
                           onChange={() => {}}
-                          style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#00f2fe' }}
                         />
                       </div>
 
                       <div 
                         className="video-thumbnail-container"
-                        style={{ cursor: 'pointer' }}
                         onClick={() => {
                           setSelectedVideo(vid);
                           setActiveModal('watch');
                         }}
                         title="Click để xem video"
                       >
-                        <img className="video-thumbnail" src={vid.thumbnail} alt={vid.title} />
-                        <span className="video-views">{formatViews(vid.viewCount)}</span>
-                        <span className="video-duration">{formatDuration(vid.duration)}</span>
+                        <img className="video-thumbnail" src={vid.thumbnail} alt={vid.title} loading="lazy" />
+                        <span className="video-views">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                          </svg>
+                          {formatViews(vid.viewCount)}
+                        </span>
+                        {vid.duration ? <span className="video-duration">{formatDuration(vid.duration)}</span> : null}
                       </div>
-                      <div className="video-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
-                        <div>
-                          <div className="video-title" title={vid.title} style={{ fontSize: '0.9rem', marginBottom: '0.4rem' }}>
-                            {vid.title}
-                          </div>
-                          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0.5rem 0' }}>
-                            Kênh: <strong>@{vid.uploader_id}</strong>
-                          </p>
-                        </div>
-                        
-                        <div style={{ marginTop: 'auto' }}>
-                          <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                            <span>❤️ {vid.likeCount?.toLocaleString() || 0}</span>
-                            <span>💬 {vid.commentCount?.toLocaleString() || 0}</span>
-                            <span>🔄 {vid.shareCount?.toLocaleString() || 0}</span>
-                          </div>
 
-                          <div className="video-actions" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem' }}>
-                            <button className="btn-action btn-action-download" style={{ padding: '0.45rem 0.25rem', fontSize: '0.72rem' }} onClick={() => handleDownload(vid.webpage_url)}>
-                              Tải video
-                            </button>
-                            <button className="btn-action btn-action-script" style={{ padding: '0.45rem 0.25rem', fontSize: '0.72rem' }} onClick={() => handleGetScript(vid)}>
-                              Kịch bản
-                            </button>
-                            <button className="btn-action btn-action-analyze" style={{ padding: '0.45rem 0.25rem', fontSize: '0.72rem' }} onClick={() => handleAnalyze(vid)}>
-                              Phân tích
-                            </button>
-                          </div>
+                      <div className="video-content">
+                        <div className="video-title" title={vid.title}>
+                          {vid.title}
+                        </div>
+                        <div className="video-meta-row">
+                          <span>@{vid.uploader_id || vid.uploader || 'creator'}</span>
+                          <span>❤️ {vid.likeCount?.toLocaleString() || 0}</span>
+                        </div>
+
+                        <div className="video-actions">
+                          <button className="btn-action btn-action-download" onClick={() => handleDownload(vid.webpage_url || vid.url)} title="Tải video không logo">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                              <polyline points="7 10 12 15 17 10"></polyline>
+                              <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            Tải
+                          </button>
+                          <button className="btn-action btn-action-script" onClick={() => handleGetScript(vid)} title="Lấy kịch bản">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                              <polyline points="14 2 14 8 20 8"></polyline>
+                              <line x1="16" y1="13" x2="8" y2="13"></line>
+                              <line x1="16" y1="17" x2="8" y2="17"></line>
+                            </svg>
+                            Kịch bản
+                          </button>
+                          <button className="btn-action btn-action-analyze" onClick={() => handleAnalyze(vid)} title="Phân tích AI">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                            </svg>
+                            AI
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1265,15 +1351,17 @@ function App() {
 
       {/* Tab 3: History & Analysis Details */}
       {activeTab === 'history' && !isLoading && (
-        <div className="history-section" style={{ display: 'flex', gap: '1.5rem', minHeight: '60vh' }}>
+        <div className="history-section">
           {/* History Sidebar */}
-          <div className="glass-card history-sidebar" style={{ flex: '1 1 280px', maxWidth: '340px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>Lịch sử phân tích</span>
+          <div className="history-sidebar">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '12px', borderBottom: '1px solid var(--border-light)', marginBottom: '14px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>
+                Lịch sử phân tích
+              </h3>
               {history.length > 0 && (
                 <button 
                   className="btn btn-secondary" 
-                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} 
+                  style={{ padding: '4px 10px', fontSize: '12px', height: 'auto' }} 
                   onClick={() => {
                     if (window.confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử?')) {
                       setHistory([]);
@@ -1285,65 +1373,58 @@ function App() {
                   Xóa tất cả
                 </button>
               )}
-            </h3>
+            </div>
             
             {history.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center', marginTop: '2rem' }}>
-                Chưa có lịch sử phân tích. Hãy thực hiện quét kênh hoặc quét link video riêng!
-              </p>
+              <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)' }}>
+                <div style={{ fontSize: '32px', marginBottom: '8px' }}>📂</div>
+                <p style={{ fontSize: '13px', margin: 0, fontWeight: 500 }}>Chưa có lịch sử phân tích.</p>
+                <p style={{ fontSize: '12px', marginTop: '4px' }}>Hãy quét kênh hoặc quét video riêng để lưu lại tại đây.</p>
+              </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', overflowY: 'auto', maxHeight: '70vh', paddingRight: '0.25rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: 'calc(100vh - 220px)', paddingRight: '4px' }}>
                 {history.map(item => (
                   <div 
                     key={item.id} 
                     onClick={() => setSelectedHistoryId(item.id)}
-                    style={{ 
-                      display: 'flex', 
-                      gap: '0.75rem', 
-                      padding: '0.75rem', 
-                      borderRadius: '8px', 
-                      cursor: 'pointer',
-                      background: selectedHistoryId === item.id ? 'rgba(0, 242, 254, 0.1)' : 'rgba(255, 255, 255, 0.02)',
-                      border: selectedHistoryId === item.id ? '1px solid rgba(0, 242, 254, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)',
-                      transition: 'all 0.2s ease',
-                      position: 'relative'
-                    }}
-                    className="history-item"
+                    className={`history-item ${selectedHistoryId === item.id ? 'active' : ''}`}
                   >
                     <img 
                       src={item.video?.thumbnail || ''} 
                       alt="thumbnail" 
-                      style={{ width: '50px', height: '65px', borderRadius: '4px', objectFit: 'cover' }} 
+                      style={{ width: '48px', height: '64px', borderRadius: '4px', objectFit: 'cover', flexShrink: 0 }} 
                     />
                     <div style={{ flex: '1', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                       <div 
                         style={{ 
-                          fontSize: '0.85rem', 
-                          fontWeight: '500',
-                          color: selectedHistoryId === item.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          fontSize: '13px', 
+                          fontWeight: '600',
+                          color: selectedHistoryId === item.id ? 'var(--tt-red)' : 'var(--text-primary)',
                           whiteSpace: 'nowrap', 
                           overflow: 'hidden', 
                           textOverflow: 'ellipsis' 
                         }}
                       >
-                        {item.video?.title || ''}
+                        {item.video?.title || item.video?.description || 'Video không tiêu đề'}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                         @{item.video?.uploader_id || item.video?.uploader || 'user'}
                       </div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>{new Date(item.timestamp).toLocaleDateString()}</span>
                         <span style={{ 
-                          padding: '2px 6px', 
-                          borderRadius: '10px', 
-                          background: item.analysis ? 'rgba(0, 242, 254, 0.15)' : 'rgba(255, 255, 255, 0.1)',
-                          color: item.analysis ? '#00f2fe' : 'var(--text-muted)',
-                          fontSize: '0.65rem'
+                          padding: '2px 8px', 
+                          borderRadius: '12px', 
+                          background: item.analysis ? 'rgba(37, 244, 238, 0.15)' : 'var(--bg-hover)',
+                          color: item.analysis ? '#0891b2' : 'var(--text-muted)',
+                          fontWeight: '600',
+                          fontSize: '10px'
                         }}>
-                          {item.analysis ? 'Đã phân tích' : 'Chỉ kịch bản'}
+                          {item.analysis ? 'Đã AI' : 'Kịch bản'}
                         </span>
                       </div>
                     </div>
+
                     {/* Delete item button */}
                     <button 
                       onClick={(e) => {
@@ -1359,16 +1440,17 @@ function App() {
                       }}
                       style={{ 
                         position: 'absolute', 
-                        top: '5px', 
-                        right: '5px', 
+                        top: '6px', 
+                        right: '6px', 
                         background: 'transparent', 
                         border: 'none', 
                         color: 'var(--text-muted)', 
                         cursor: 'pointer',
-                        padding: '2px',
-                        fontSize: '0.9rem'
+                        padding: '4px',
+                        fontSize: '14px',
+                        lineHeight: 1
                       }}
-                      title="Xóa"
+                      title="Xóa bản ghi này"
                     >
                       &times;
                     </button>
@@ -1379,95 +1461,103 @@ function App() {
           </div>
 
           {/* Detailed Content Panel */}
-          <div className="glass-card history-detail-panel" style={{ flex: '2 1 600px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="history-detail-panel">
             {(() => {
               const activeItem = history.find(h => h.id === selectedHistoryId);
               if (!activeItem) {
                 return (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', minHeight: '350px' }}>
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ marginBottom: '1rem', opacity: 0.5 }}>
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                      <polyline points="14 2 14 8 20 8"></polyline>
-                      <line x1="16" y1="13" x2="8" y2="13"></line>
-                      <line x1="16" y1="17" x2="8" y2="17"></line>
-                    </svg>
-                    <h4>Vui lòng chọn một video trong danh sách lịch sử để xem chi tiết kịch bản và phân tích.</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', minHeight: '360px' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>🎬</div>
+                    <h4 style={{ color: 'var(--text-primary)', margin: '0 0 6px 0', fontSize: '16px' }}>Chọn một video để xem chi tiết</h4>
+                    <p style={{ margin: 0, fontSize: '13px' }}>Nhấp vào một video trong danh sách bên trái để đọc kịch bản thoại và phân tích chiến lược AI.</p>
                   </div>
                 );
               }
 
               const { video, transcript, analysis, optimizedScript } = activeItem;
               return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   {/* Detail Header */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', borderBottom: '1px solid var(--border-light)', paddingBottom: '16px' }}>
                     <div style={{ flex: '1 1 400px' }}>
-                      <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '0.5rem', lineHeight: '1.5', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
-                        {video?.title || video?.description || ''}
+                      <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '6px', lineHeight: '1.4' }}>
+                        {video?.title || video?.description || 'Chi tiết video'}
                       </h2>
-                      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                        Kênh: <strong>@{video?.uploader_id || video?.uploader || 'user'}</strong> | Ngày lưu: {new Date(activeItem.timestamp).toLocaleString()}
-                      </p>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        <span>Kênh: <strong style={{ color: 'var(--text-primary)' }}>@{video?.uploader_id || video?.uploader || 'user'}</strong></span>
+                        <span>•</span>
+                        <span>Ngày lưu: {new Date(activeItem.timestamp).toLocaleString()}</span>
+                        {video?.viewCount ? (
+                          <>
+                            <span>•</span>
+                            <span>{formatViews(video.viewCount)}</span>
+                          </>
+                        ) : null}
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', gap: '8px' }}>
                       <button className="btn btn-secondary" onClick={() => {
                         setSelectedVideo(video);
                         setActiveModal('watch');
                       }}>
-                        Xem video
+                        ▶ Xem video
                       </button>
-                      <button className="btn btn-secondary" onClick={() => handleDownload(video?.url || video?.webpage_url)}>
-                        Tải không logo
+                      <button className="btn btn-primary" onClick={() => handleDownload(video?.url || video?.webpage_url)}>
+                        ⬇ Tải không logo
                       </button>
                     </div>
                   </div>
 
                   {/* Twin Pane: Transcript & Analysis */}
-                  <div className="detail-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                  <div className="detail-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
                     
                     {/* Column 1: Original Transcript */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', color: 'var(--accent-cyan)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>Kịch bản gốc (Giọng nói dịch)</span>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>🎙️</span>
+                          <span>Kịch bản gốc (Giọng nói)</span>
+                        </h3>
+                        <div style={{ display: 'flex', gap: '6px' }}>
                           <button 
                             className="btn btn-secondary" 
-                            style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                            style={{ padding: '3px 8px', fontSize: '11px', height: 'auto' }}
                             onClick={() => handleGetScriptFromHistory(activeItem)}
-                            title="Chạy AI để tạo kịch bản thoại chi tiết từng câu từng chữ"
+                            title="Chạy AI để trích xuất lại kịch bản thoại"
                           >
-                            🔄 Tạo lại kịch bản
+                            🔄 Dịch lại
                           </button>
                           {transcript && (
                             <button 
                               className="btn btn-secondary" 
-                              style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                              style={{ padding: '3px 8px', fontSize: '11px', height: 'auto' }}
                               onClick={() => {
                                 navigator.clipboard.writeText(transcript);
                                 showToast('Đã sao chép kịch bản!');
                               }}
                             >
-                              Sao chép
+                              📋 Sao chép
                             </button>
                           )}
                         </div>
-                      </h3>
+                      </div>
+
                       <div style={{ 
-                        background: 'rgba(255, 255, 255, 0.01)', 
-                        border: '1px solid var(--border-color)', 
-                        borderRadius: '8px', 
-                        padding: '1.25rem', 
-                        minHeight: '480px', 
-                        maxHeight: '65vh',
+                        background: 'var(--bg-input)', 
+                        border: '1px solid var(--border-light)', 
+                        borderRadius: 'var(--radius-md)', 
+                        padding: '16px', 
+                        minHeight: '440px', 
+                        maxHeight: '60vh',
                         overflowY: 'auto',
-                        fontSize: '0.95rem',
+                        fontSize: '13px',
                         lineHeight: '1.7',
-                        color: 'var(--text-secondary)',
+                        color: 'var(--text-primary)',
                         whiteSpace: 'pre-wrap'
                       }}>
                         {transcript ? transcript : (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '1rem' }}>
-                            <p style={{ fontSize: '0.85rem' }}>Chưa trích xuất kịch bản thoại.</p>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px', minHeight: '300px' }}>
+                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>Chưa trích xuất kịch bản thoại của video này.</p>
                             <button className="btn btn-primary" onClick={() => handleGetScriptFromHistory(activeItem)}>
                               Dịch kịch bản ngay
                             </button>
@@ -1477,37 +1567,41 @@ function App() {
                     </div>
 
                     {/* Column 2: AI Analysis */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', color: '#b15cff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>Phân tích xu hướng (AI)</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>✨</span>
+                          <span>Phân tích xu hướng (AI)</span>
+                        </h3>
                         {analysis && (
                           <button 
                             className="btn btn-secondary" 
-                            style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                            style={{ padding: '3px 8px', fontSize: '11px', height: 'auto' }}
                             onClick={() => {
                               navigator.clipboard.writeText(analysis);
                               showToast('Đã sao chép phân tích AI!');
                             }}
                           >
-                            Sao chép
+                            📋 Sao chép
                           </button>
                         )}
-                      </h3>
+                      </div>
+
                       <div style={{ 
-                        background: 'rgba(255, 255, 255, 0.01)', 
-                        border: '1px solid var(--border-color)', 
-                        borderRadius: '8px', 
-                        padding: '1.25rem', 
-                        minHeight: '480px', 
-                        maxHeight: '65vh',
+                        background: 'var(--bg-input)', 
+                        border: '1px solid var(--border-light)', 
+                        borderRadius: 'var(--radius-md)', 
+                        padding: '16px', 
+                        minHeight: '440px', 
+                        maxHeight: '60vh',
                         overflowY: 'auto',
-                        fontSize: '0.95rem',
+                        fontSize: '13px',
                         lineHeight: '1.7',
-                        color: 'var(--text-secondary)'
+                        color: 'var(--text-primary)'
                       }}
                         dangerouslySetInnerHTML={{ 
-                          __html: analysis ? parseMarkdown(analysis) : `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 1rem;">
-                            <p style="font-size: 0.85rem;">Chưa chạy phân tích video AI.</p>
+                          __html: analysis ? parseMarkdown(analysis) : `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 300px; gap: 12px;">
+                            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Chưa chạy phân tích nội dung AI.</p>
                             <button class="btn btn-primary" onclick="window.dispatchAnalyzeEvent('${activeItem.id}')">
                               Chạy phân tích AI ngay
                             </button>
@@ -1519,53 +1613,56 @@ function App() {
 
                   {/* Prominent Call-to-action: Optimize script */}
                   {transcript && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem', marginTop: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', borderTop: '1px solid var(--border-light)', paddingTop: '20px', marginTop: '10px' }}>
                       {isOptimizing ? (
-                        <div style={{ textAlign: 'center', padding: '1rem' }}>
-                          <div className="spinner" style={{ margin: '0 auto 0.75rem auto' }}></div>
-                          <p style={{ color: '#00f2fe', fontSize: '0.95rem' }}>Đang sáng tạo kịch bản mới tối ưu triệu view...</p>
+                        <div style={{ textAlign: 'center', padding: '16px' }}>
+                          <div className="spinner" style={{ margin: '0 auto 10px auto' }}></div>
+                          <p style={{ color: 'var(--tt-red)', fontSize: '14px', fontWeight: '600' }}>Đang sáng tạo kịch bản mới tối ưu triệu view...</p>
                         </div>
                       ) : !optimizedScript ? (
                         <button 
-                          className="btn" 
+                          className="btn btn-primary" 
                           style={{ 
-                            background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)', 
-                            color: '#000', 
-                            fontWeight: 'bold', 
-                            padding: '0.75rem 2rem',
-                            fontSize: '1rem',
-                            boxShadow: '0 4px 15px rgba(0, 242, 254, 0.3)'
+                            padding: '12px 28px',
+                            fontSize: '14px',
+                            fontWeight: '700',
+                            borderRadius: 'var(--radius-pill)',
+                            boxShadow: 'var(--shadow-btn)'
                           }}
                           onClick={() => handleCreateOptimizedScript(activeItem)}
                         >
                           🚀 Tạo kịch bản tối ưu mới dựa trên video này
                         </button>
                       ) : (
-                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
-                          <h3 style={{ fontSize: '1.2rem', color: '#00f2fe', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span>✨ KỊCH BẢN TỐI ƯU MỚI ĐỀ XUẤT (Cấu trúc chuyên nghiệp)</span>
+                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--tt-red)', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>🔥</span>
+                              <span>KỊCH BẢN TỐI ƯU MỚI ĐỀ XUẤT (Cấu trúc chuyên nghiệp)</span>
+                            </h3>
                             <button 
                               className="btn btn-secondary" 
-                              style={{ padding: '4px 12px', fontSize: '0.8rem' }}
+                              style={{ padding: '4px 12px', fontSize: '12px' }}
                               onClick={() => {
                                 navigator.clipboard.writeText(optimizedScript);
                                 showToast('Đã sao chép kịch bản tối ưu mới!');
                               }}
                             >
-                              Sao chép kịch bản mới
+                              📋 Sao chép kịch bản
                             </button>
-                          </h3>
+                          </div>
+
                           <div style={{ 
-                            background: 'rgba(0, 242, 254, 0.03)', 
-                            border: '1px dashed rgba(0, 242, 254, 0.4)', 
-                            borderRadius: '10px', 
-                            padding: '1.5rem', 
-                            fontSize: '0.95rem',
-                            lineHeight: '1.7',
+                            background: 'var(--tt-red-soft)', 
+                            border: '1px dashed var(--tt-red-soft-border)', 
+                            borderRadius: 'var(--radius-md)', 
+                            padding: '20px', 
+                            fontSize: '13px', 
+                            lineHeight: '1.7', 
                             color: 'var(--text-primary)',
                             whiteSpace: 'pre-wrap',
-                            minHeight: '400px',
-                            maxHeight: '75vh',
+                            minHeight: '350px',
+                            maxHeight: '70vh',
                             overflowY: 'auto'
                           }}>
                             {optimizedScript}
@@ -1573,7 +1670,7 @@ function App() {
                           
                           <button 
                             className="btn btn-secondary" 
-                            style={{ alignSelf: 'center', marginTop: '0.5rem' }}
+                            style={{ alignSelf: 'center', marginTop: '6px' }}
                             onClick={() => handleCreateOptimizedScript(activeItem)}
                           >
                             🔄 Viết lại phiên bản tối ưu khác
@@ -1588,6 +1685,9 @@ function App() {
           </div>
         </div>
       )}
+
+        </main>
+      </div>
 
       {/* Script & Analysis Modal */}
       {(activeModal === 'script' || activeModal === 'analysis') && (
@@ -1686,7 +1786,7 @@ function App() {
                 </div>
 
                 <div>
-                  <label htmlFor="speech-key" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#00f2fe' }}>
+                  <label htmlFor="speech-key" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: 'var(--text-primary)' }}>
                     🎙️ API Key Dịch Giọng Nói Video (Google Gemini Key - Miễn Phí)
                   </label>
                   <input 
@@ -1707,18 +1807,18 @@ function App() {
                     padding: '1rem', 
                     borderRadius: '8px', 
                     fontSize: '0.85rem',
-                    background: diagnoseResult.success && diagnoseResult.quotaStatus === 'active' ? 'rgba(0, 242, 254, 0.05)' : 'rgba(255, 56, 96, 0.05)',
-                    border: diagnoseResult.success && diagnoseResult.quotaStatus === 'active' ? '1px solid rgba(0, 242, 254, 0.2)' : '1px solid rgba(255, 56, 96, 0.2)'
+                    background: diagnoseResult.success && diagnoseResult.quotaStatus === 'active' ? 'rgba(34, 197, 94, 0.08)' : 'rgba(254, 44, 85, 0.08)',
+                    border: diagnoseResult.success && diagnoseResult.quotaStatus === 'active' ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(254, 44, 85, 0.3)'
                   }}>
                     {diagnoseResult.success ? (
                       <div>
                         {diagnoseResult.quotaStatus === 'active' ? (
-                          <p style={{ color: '#00f2fe' }}>
-                            <strong>Kết nối thành công!</strong> API Key hoạt động tốt và có sẵn các mô hình: {diagnoseResult.models.join(', ')}.
+                          <p style={{ color: '#15803d', margin: 0, fontWeight: '600' }}>
+                            ✅ Kết nối thành công! API Key hoạt động tốt và có sẵn các mô hình: {diagnoseResult.models.join(', ')}.
                           </p>
                         ) : (
                           <div>
-                            <p style={{ color: '#ff3860', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                            <p style={{ color: 'var(--tt-red)', fontWeight: 'bold', marginBottom: '0.5rem' }}>
                               ⚠️ Lỗi Quota / Hạn ngạch (limit: 0):
                             </p>
                             <p style={{ color: 'var(--text-secondary)', marginBottom: '0.75rem', lineHeight: '1.4' }}>
@@ -1735,7 +1835,7 @@ function App() {
                         )}
                       </div>
                     ) : (
-                      <p style={{ color: '#ff3860' }}>
+                      <p style={{ color: 'var(--tt-red)', margin: 0 }}>
                         <strong>Lỗi kết nối:</strong> {diagnoseResult.error}
                       </p>
                     )}
@@ -1819,15 +1919,15 @@ function App() {
               <div style={{ 
                 padding: '0.85rem 1rem', 
                 borderRadius: '10px', 
-                background: isExtensionActive ? 'rgba(34, 197, 94, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                border: isExtensionActive ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(234, 179, 8, 0.4)',
+                background: isExtensionActive ? 'rgba(34, 197, 94, 0.1)' : 'rgba(234, 179, 8, 0.1)',
+                border: isExtensionActive ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(234, 179, 8, 0.3)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '10px'
               }}>
                 <span style={{ fontSize: '20px' }}>{isExtensionActive ? '🟢' : '🟡'}</span>
                 <div>
-                  <strong style={{ color: isExtensionActive ? '#4ade80' : '#facc15' }}>
+                  <strong style={{ color: isExtensionActive ? '#15803d' : '#a16207' }}>
                     {isExtensionActive ? 'Extension đang hoạt động hoàn hảo!' : 'Chưa phát hiện Extension trên trình duyệt'}
                   </strong>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
@@ -1852,7 +1952,7 @@ function App() {
                     fontSize: '1rem',
                     textDecoration: 'none',
                     fontWeight: 700,
-                    boxShadow: '0 4px 15px rgba(0, 242, 254, 0.3)'
+                    boxShadow: 'var(--shadow-btn)'
                   }}
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1865,7 +1965,7 @@ function App() {
               </div>
 
               {/* 3 Step Install Guide */}
-              <div style={{ background: 'rgba(255, 255, 255, 0.03)', borderRadius: '10px', padding: '1.25rem', border: '1px solid var(--border-color)' }}>
+              <div style={{ background: 'var(--bg-input)', borderRadius: '10px', padding: '1.25rem', border: '1px solid var(--border-light)' }}>
                 <h4 style={{ color: 'var(--text-primary)', marginBottom: '0.75rem', fontSize: '0.95rem' }}>
                   📖 Hướng dẫn cài đặt nhanh trong 10 giây:
                 </h4>
@@ -1874,7 +1974,7 @@ function App() {
                     <strong>Bước 1:</strong> Bấm nút tải ở trên &rarr; Giải nén file <code>zvibe-tiktok-helper.zip</code> thành 1 thư mục trên máy tính của bạn.
                   </li>
                   <li>
-                    <strong>Bước 2:</strong> Mở tab mới trên Chrome, truy cập vào đường dẫn: <code style={{ color: '#00f2fe', background: 'rgba(0,242,254,0.1)', padding: '2px 6px', borderRadius: '4px' }}>chrome://extensions/</code>
+                    <strong>Bước 2:</strong> Mở tab mới trên Chrome, truy cập vào đường dẫn: <code style={{ color: 'var(--tt-red)', background: '#FFFFFF', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-light)' }}>chrome://extensions/</code>
                   </li>
                   <li>
                     <strong>Bước 3:</strong> Bật công tắc <strong>"Chế độ cho nhà phát triển" (Developer mode)</strong> ở góc trên bên phải màn hình.
@@ -1900,15 +2000,15 @@ function App() {
 
       {/* Toast Notification */}
       {toast && (
-        <div className="toast" style={{ borderLeftColor: toast.type === 'error' ? '#ff3860' : 'var(--accent-cyan)' }}>
+        <div className="toast" style={{ borderLeftColor: toast.type === 'error' ? 'var(--tt-red)' : '#15803d' }}>
           {toast.type === 'error' ? (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff3860" strokeWidth="2.5">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--tt-red)" strokeWidth="2.5">
               <circle cx="12" cy="12" r="10"></circle>
               <line x1="12" y1="8" x2="12" y2="12"></line>
               <line x1="12" y1="16" x2="12.01" y2="16"></line>
             </svg>
           ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" strokeWidth="2.5">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="2.5">
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
           )}
