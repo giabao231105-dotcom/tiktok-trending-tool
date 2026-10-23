@@ -45,9 +45,9 @@
   --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.15);
   --shadow-dropdown: 0 4px 16px rgba(0, 0, 0, 0.12);
 
-  /* Typography */
-  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* Typography - Clean unified Inter & TikTok Font */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
   /* Border Radii */
   --radius-xs: 4px;
@@ -1109,6 +1109,563 @@ select.form-control {
   font-weight: 600;
   color: var(--text-primary);
   font-size: 15px;
+}
+
+/* ==========================================================================
+   TIKTOK DESKTOP THEATER VIDEO PLAYER MODAL (Matching tiktok.com desktop)
+   ========================================================================== */
+
+.tt-player-overlay {
+  position: fixed;
+  inset: 0;
+  background: #000000;
+  z-index: 3000;
+  display: flex;
+  overflow: hidden;
+  animation: ttFadeIn 0.2s ease-out;
+}
+
+@keyframes ttFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Left: Video Theater (Black canvas) */
+.tt-player-theater {
+  flex: 1;
+  background: #000000;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Top bar over theater */
+.tt-player-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  z-index: 20;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.65) 0%, transparent 100%);
+}
+
+.tt-circle-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  border: none;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+  backdrop-filter: blur(8px);
+}
+
+.tt-circle-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  transform: scale(1.05);
+}
+
+.tt-player-search-pill {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-pill);
+  padding: 8px 18px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(8px);
+}
+
+/* Video Stage Area */
+.tt-player-stage {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 60px 40px 84px 40px;
+}
+
+.tt-player-video {
+  max-height: 82vh;
+  max-width: 100%;
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
+  background: #000000;
+  cursor: pointer;
+  outline: none;
+}
+
+/* Play/Pause Center Overlay Icon */
+.tt-play-overlay-icon {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: var(--transition);
+  backdrop-filter: blur(4px);
+}
+
+/* Navigation Chevrons on theater right edge */
+.tt-player-nav-group {
+  position: absolute;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  z-index: 15;
+}
+
+.tt-nav-chevron {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+  backdrop-filter: blur(8px);
+}
+
+.tt-nav-chevron:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.08);
+}
+
+.tt-nav-chevron:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Bottom Controls with Scrubber (Seek bar) */
+.tt-player-bottom-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 28px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, transparent 100%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Scrubber / Seek Bar Timeline */
+.tt-scrubber-track {
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
+  cursor: pointer;
+  position: relative;
+  transition: height 0.15s ease;
+}
+
+.tt-scrubber-track:hover {
+  height: 8px;
+}
+
+.tt-scrubber-progress {
+  height: 100%;
+  background: #FFFFFF;
+  border-radius: 3px;
+  position: relative;
+}
+
+.tt-scrubber-thumb {
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.tt-scrubber-track:hover .tt-scrubber-thumb {
+  opacity: 1;
+  transform: translateY(-50%) scale(1.2);
+}
+
+/* Scrubber Control Buttons Row */
+.tt-player-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tt-player-actions-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tt-theater-pill-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-pill);
+  color: #FFFFFF;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: var(--transition);
+  backdrop-filter: blur(6px);
+}
+
+.tt-theater-pill-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.tt-player-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #FFFFFF;
+}
+
+.tt-time-display {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Volume Slider */
+.tt-volume-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tt-volume-slider {
+  width: 70px;
+  height: 4px;
+  accent-color: #FFFFFF;
+  cursor: pointer;
+}
+
+/* Right: Sidebar Panel (Pure Clean TikTok White Style) */
+.tt-player-sidebar {
+  width: 480px;
+  max-width: 40vw;
+  background: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+  border-left: 1px solid var(--border-light);
+}
+
+.tt-sidebar-inner {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Creator Profile Header in Sidebar */
+.tt-player-creator-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tt-player-creator-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tt-player-creator-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border-light);
+}
+
+.tt-player-creator-names {
+  flex: 1;
+  min-width: 0;
+}
+
+.tt-player-nickname {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tt-player-handle-date {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Caption Text */
+.tt-player-caption {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+/* Sound / Music Audio Line */
+.tt-player-sound-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+}
+
+/* ==========================================================================
+   TIKTOK SHOP / GIỎ HÀNG SẢN PHẨM CARD
+   ========================================================================== */
+
+.tt-shop-product-card {
+  background: linear-gradient(135deg, rgba(254, 44, 85, 0.06) 0%, rgba(254, 44, 85, 0.02) 100%);
+  border: 1px solid rgba(254, 44, 85, 0.3);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: var(--transition);
+}
+
+.tt-shop-product-card:hover {
+  border-color: var(--tt-red);
+  box-shadow: 0 4px 16px rgba(254, 44, 85, 0.12);
+}
+
+.tt-shop-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tt-shop-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tt-red);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tt-shop-pill-tag {
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(254, 44, 85, 0.12);
+  color: var(--tt-red);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+}
+
+.tt-shop-body {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.tt-shop-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: #FFFFFF;
+  border: 1px solid rgba(254, 44, 85, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.tt-shop-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.tt-shop-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.4;
+  margin-bottom: 2px;
+}
+
+.tt-shop-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tt-shop-action-btn {
+  background: var(--tt-red);
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: var(--transition);
+  text-decoration: none;
+}
+
+.tt-shop-action-btn:hover {
+  background: var(--tt-red-hover);
+}
+
+/* Engagement Numbers Row */
+.tt-player-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.tt-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tt-stat-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-input);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Copy Link Bar */
+.tt-copy-link-bar {
+  display: flex;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.tt-copy-link-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  outline: none;
+}
+
+.tt-copy-link-btn {
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--border-light);
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.tt-copy-link-btn:hover {
+  background: var(--bg-hover);
+  color: var(--tt-red);
+}
+
+/* Sidebar Tab switcher: Info / Script / Analysis */
+.tt-player-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-light);
+  gap: 16px;
+}
+
+.tt-player-tab {
+  padding: 10px 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  transition: var(--transition);
+}
+
+.tt-player-tab:hover {
+  color: var(--text-primary);
+}
+
+.tt-player-tab.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--tt-black);
 }
 
 /* ==========================================================================

@@ -49,7 +49,13 @@ function updateOverlay(text, count, limit) {
   const statusEl = document.getElementById('zvibe-status-text');
   const counterEl = document.getElementById('zvibe-counter');
   if (statusEl) statusEl.innerText = text;
-  if (counterEl) counterEl.innerText = `Đã quét: ${count} / ${limit} video`;
+  if (counterEl) {
+    if (limit >= 9999) {
+      counterEl.innerText = `Đã quét: ${count} video (Đang cào toàn bộ đến đáy kênh...)`;
+    } else {
+      counterEl.innerText = `Đã quét: ${count} / ${limit} video`;
+    }
+  }
 }
 
 function parseCount(text) {
@@ -93,6 +99,27 @@ function extractVideoItems(uploader, uploaderId) {
         const viewEl = card.querySelector('[data-e2e="video-views"]') || card.querySelector('strong') || card.querySelector('[class*="VideoCount"]');
         const viewCount = parseCount(viewEl?.innerText);
 
+        // Detect TikTok Shop product anchor if present
+        const anchorEl = card.querySelector('[data-e2e*="anchor"]') || 
+                         card.querySelector('a[href*="/product/"]') || 
+                         card.querySelector('div[class*="Anchor"]') ||
+                         card.querySelector('[class*="shop"]') ||
+                         card.querySelector('[class*="product"]');
+        const anchorText = anchorEl ? anchorEl.innerText.trim() : null;
+        const caption = (title || '').toLowerCase();
+        const hasShopMention = !!anchorText || /giỏ hàng|tiktokshop|tiktok shop|sản phẩm|mua tại/i.test(caption);
+
+        let shopProduct = null;
+        if (anchorText || hasShopMention) {
+          shopProduct = {
+            title: anchorText || 'Sản phẩm Giỏ hàng TikTok Shop',
+            type: 'TikTokShop',
+            icon: '🛍️',
+            url: cleanUrl,
+            isAffiliate: true
+          };
+        }
+
         foundMap.set(vid, {
           id: vid,
           title: title || 'TikTok Video',
@@ -105,7 +132,8 @@ function extractVideoItems(uploader, uploaderId) {
           webpage_url: cleanUrl,
           url: cleanUrl,
           uploader: uploader || '',
-          uploader_id: uploaderId || ''
+          uploader_id: uploaderId || '',
+          shopProduct: shopProduct
         });
       }
     }
@@ -150,12 +178,15 @@ async function startAutoScrollScrape(targetLimit = 30) {
   const meta = getChannelMetadata();
   const allVideos = new Map();
   let idleScrolls = 0;
-  const maxIdleScrolls = 5;
+  // If targetLimit >= 9999, user wants ALL videos to the very bottom; wait up to 8 idle scrolls before considering end of channel
+  const maxIdleScrolls = targetLimit >= 9999 ? 8 : 5;
 
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   // Initial wait for dynamic TikTok items to render
   await wait(1500);
+
+  let lastReportedCount = 0;
 
   while (allVideos.size < targetLimit && idleScrolls < maxIdleScrolls) {
     const currentBatch = extractVideoItems(meta.uploader, meta.uploaderId);
@@ -167,6 +198,18 @@ async function startAutoScrollScrape(targetLimit = 30) {
         newItemsFound++;
         if (allVideos.size >= targetLimit) break;
       }
+    }
+
+    // Send progress heartbeat to background to reset timeout and update UI
+    if (allVideos.size !== lastReportedCount) {
+      lastReportedCount = allVideos.size;
+      try {
+        chrome.runtime.sendMessage({
+          action: 'SCRAPE_PROGRESS',
+          count: allVideos.size,
+          limit: targetLimit
+        });
+      } catch (_) {}
     }
 
     updateOverlay(
@@ -187,19 +230,23 @@ async function startAutoScrollScrape(targetLimit = 30) {
 
     // Scroll down gradually
     window.scrollBy({
-      top: 1000,
+      top: 1200,
       behavior: 'smooth'
     });
 
     // Wait for TikTok feed to append next items
-    await wait(800 + Math.floor(Math.random() * 400));
+    await wait(750 + Math.floor(Math.random() * 350));
   }
 
   // Final check
   const videoItems = Array.from(allVideos.values());
   const videoUrls = videoItems.map(v => v.webpage_url || v.url);
 
-  updateOverlay('Hoàn tất! Đang chuyển dữ liệu về Web Tool...', videoItems.length, targetLimit);
+  updateOverlay(
+    `Hoàn tất! Đã quét được ${videoItems.length} video. Đang chuyển về Web Tool...`, 
+    videoItems.length, 
+    targetLimit
+  );
   await wait(600);
 
   chrome.runtime.sendMessage({

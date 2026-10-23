@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import JSZip from 'jszip';
 
 // Custom lightweight Markdown parser for premium reports
@@ -92,6 +92,15 @@ function App() {
   // Chrome Extension Integration State
   const [isExtensionActive, setIsExtensionActive] = useState(false);
 
+  // TikTok Desktop Video Player Theater State
+  const [playerTab, setPlayerTab] = useState('info'); // 'info' | 'script' | 'analysis'
+  const [playerIsPlaying, setPlayerIsPlaying] = useState(true);
+  const [playerCurrentTime, setPlayerCurrentTime] = useState(0);
+  const [playerDuration, setPlayerDuration] = useState(0);
+  const [playerVolume, setPlayerVolume] = useState(1);
+  const [playerIsMuted, setPlayerIsMuted] = useState(false);
+  const videoRef = useRef(null);
+
   // Listen for ZVibe Chrome Extension heartbeat/handshake
   useEffect(() => {
     const handleExtensionMsg = (e) => {
@@ -107,14 +116,25 @@ function App() {
   // Helper to trigger channel scan via Chrome Extension
   const scanChannelViaExtension = (targetChannel, targetLimit) => {
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
+      const isScanAll = targetLimit === 'all' || Number(targetLimit) >= 200;
+      let timeoutDuration = isScanAll ? 900000 : 120000; // 15 mins for all/large, 2 mins otherwise
+      let timeout = setTimeout(() => {
         window.removeEventListener('message', onResult);
-        reject(new Error('Quá thời gian quét kênh từ Extension (60s).'));
-      }, 65000);
+        reject(new Error('Quá thời gian quét kênh từ Extension. Vui lòng thử lại.'));
+      }, timeoutDuration);
 
       const onResult = (e) => {
         if (!e.data) return;
-        if (e.data.type === 'ZVIBE_CHANNEL_SCAN_DONE') {
+        if (e.data.type === 'ZVIBE_CHANNEL_SCAN_PROGRESS') {
+          // Reset timeout upon progress
+          clearTimeout(timeout);
+          timeout = setTimeout(() => {
+            window.removeEventListener('message', onResult);
+            reject(new Error('Quá thời gian quét do kênh không tải thêm video mới.'));
+          }, timeoutDuration);
+
+          setLoadingMsg(`⚡ Extension đang cuộn cào video: Đã thu thập được ${e.data.count} video...`);
+        } else if (e.data.type === 'ZVIBE_CHANNEL_SCAN_DONE') {
           clearTimeout(timeout);
           window.removeEventListener('message', onResult);
           resolve(e.data);
@@ -129,7 +149,7 @@ function App() {
       window.postMessage({
         type: 'ZVIBE_START_CHANNEL_SCAN',
         channelUrl: targetChannel,
-        limit: targetLimit === 'all' ? 100 : Number(targetLimit) || 30
+        limit: targetLimit === 'all' ? 999999 : Number(targetLimit) || 30
       }, '*');
     });
   };
@@ -1024,7 +1044,7 @@ function App() {
                     />
                     <select 
                       className="form-control" 
-                      style={{ maxWidth: '130px' }}
+                      style={{ maxWidth: '175px' }}
                       value={limit}
                       onChange={(e) => setLimit(e.target.value)}
                     >
@@ -1033,7 +1053,9 @@ function App() {
                       <option value="24">24 video</option>
                       <option value="50">50 video</option>
                       <option value="100">100 video</option>
-                      <option value="all">Tất cả</option>
+                      <option value="200">200 video</option>
+                      <option value="500">500 video</option>
+                      <option value="all">Toàn bộ kênh (Đến đáy)</option>
                     </select>
                     <button className="btn btn-primary" type="submit">
                       Quét Kênh
@@ -1720,29 +1742,468 @@ function App() {
         </div>
       )}
 
-      {/* Watch Video Modal */}
-      {activeModal === 'watch' && selectedVideo && (
-        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-          <div className="modal-content" style={{ maxWidth: '500px' }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Xem Video</h3>
-              <button className="modal-close" onClick={() => setActiveModal(null)}>&times;</button>
+      {/* TikTok Desktop Theater Video Player Modal (Matching tiktok.com desktop) */}
+      {activeModal === 'watch' && selectedVideo && (() => {
+        const currentVideoList = activeTab === 'single' 
+          ? singleVideos 
+          : (activeTab === 'history' ? history.map(h => h.video).filter(Boolean) : videos);
+        const currentVideoIndex = currentVideoList.findIndex(v => (v.id && v.id === selectedVideo.id) || (v.webpage_url && v.webpage_url === selectedVideo.webpage_url));
+
+        const handlePrevVideo = () => {
+          if (currentVideoIndex > 0) {
+            setSelectedVideo(currentVideoList[currentVideoIndex - 1]);
+            setPlayerIsPlaying(true);
+          }
+        };
+
+        const handleNextVideo = () => {
+          if (currentVideoIndex >= 0 && currentVideoIndex < currentVideoList.length - 1) {
+            setSelectedVideo(currentVideoList[currentVideoIndex + 1]);
+            setPlayerIsPlaying(true);
+          }
+        };
+
+        const handleScrubberClick = (e) => {
+          if (!videoRef.current || !playerDuration) return;
+          const rect = e.currentTarget.getBoundingClientRect();
+          const clickX = e.clientX - rect.left;
+          const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+          const newTime = ratio * playerDuration;
+          videoRef.current.currentTime = newTime;
+          setPlayerCurrentTime(newTime);
+        };
+
+        const shopProduct = selectedVideo.shopProduct || (() => {
+          const title = (selectedVideo.title || selectedVideo.description || '').toLowerCase();
+          if (/giỏ hàng|tiktokshop|tiktok shop|sản phẩm|mua tại/i.test(title)) {
+            const match = title.match(/(?:mua tại|giỏ hàng|sản phẩm)[:\s]+([^#\n.]+)/i);
+            return {
+              title: match ? match[1].trim() : 'Sản phẩm được gắn trong Giỏ hàng (Góc trái video)',
+              type: 'TikTokShop',
+              icon: '🛍️',
+              url: selectedVideo.webpage_url || selectedVideo.url,
+              isAffiliate: true,
+              note: 'Phát hiện liên kết giỏ hàng TikTok Shop từ nội dung'
+            };
+          }
+          return null;
+        })();
+
+        const currentHistoryItem = history.find(h => h.id === selectedVideo.id || h.video?.id === selectedVideo.id);
+
+        return (
+          <div className="tt-player-overlay" onClick={() => setActiveModal(null)}>
+            {/* Left Theater Canvas (Video player & seek bar) */}
+            <div className="tt-player-theater" onClick={(e) => e.stopPropagation()}>
+              {/* Top Navigation Bar */}
+              <div className="tt-player-topbar">
+                <button 
+                  className="tt-circle-btn" 
+                  onClick={() => setActiveModal(null)} 
+                  title="Đóng trình phát (Esc)"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+
+                <div className="tt-player-search-pill">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <span>Tìm kiếm nội dung liên quan trên TikTok</span>
+                </div>
+
+                <button className="tt-circle-btn" title="Tùy chọn">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="12" r="2"></circle>
+                    <circle cx="19" cy="12" r="2"></circle>
+                    <circle cx="5" cy="12" r="2"></circle>
+                  </svg>
+                </button>
+              </div>
+
+              {/* Video Player Stage */}
+              <div className="tt-player-stage">
+                <video 
+                  ref={videoRef}
+                  className="tt-player-video"
+                  src={`/api/stream-video?url=${encodeURIComponent(selectedVideo.url || selectedVideo.webpage_url)}&proxy=${encodeURIComponent(proxy || '')}`}
+                  autoPlay
+                  playsInline
+                  onTimeUpdate={() => {
+                    if (videoRef.current) {
+                      setPlayerCurrentTime(videoRef.current.currentTime);
+                      setPlayerDuration(videoRef.current.duration || 0);
+                    }
+                  }}
+                  onLoadedMetadata={() => {
+                    if (videoRef.current) {
+                      setPlayerDuration(videoRef.current.duration || 0);
+                    }
+                  }}
+                  onPlay={() => setPlayerIsPlaying(true)}
+                  onPause={() => setPlayerIsPlaying(false)}
+                  onClick={() => {
+                    if (videoRef.current) {
+                      if (videoRef.current.paused) videoRef.current.play();
+                      else videoRef.current.pause();
+                    }
+                  }}
+                />
+
+                {!playerIsPlaying && (
+                  <div className="tt-play-overlay-icon">
+                    <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
+                      <polygon points="6 3 20 12 6 21 6 3"></polygon>
+                    </svg>
+                  </div>
+                )}
+
+                {/* Right Edge Chevrons (Up / Down) */}
+                <div className="tt-player-nav-group">
+                  <button 
+                    className="tt-nav-chevron" 
+                    disabled={currentVideoIndex <= 0} 
+                    onClick={handlePrevVideo} 
+                    title="Video trước (Phím mũi tên lên)"
+                  >
+                    ▲
+                  </button>
+                  <button 
+                    className="tt-nav-chevron" 
+                    disabled={currentVideoIndex < 0 || currentVideoIndex >= currentVideoList.length - 1} 
+                    onClick={handleNextVideo} 
+                    title="Video tiếp theo (Phím mũi tên xuống)"
+                  >
+                    ▼
+                  </button>
+                </div>
+              </div>
+
+              {/* Bottom Controls Bar with Scrubber Timeline */}
+              <div className="tt-player-bottom-bar">
+                {/* Scrubber / Seek Bar (Tua video) */}
+                <div className="tt-scrubber-track" onClick={handleScrubberClick} title="Bấm hoặc kéo để tua video đến đoạn mong muốn">
+                  <div 
+                    className="tt-scrubber-progress" 
+                    style={{ width: `${playerDuration ? (playerCurrentTime / playerDuration) * 100 : 0}%` }}
+                  >
+                    <div className="tt-scrubber-thumb"></div>
+                  </div>
+                </div>
+
+                {/* Actions row under scrubber */}
+                <div className="tt-player-actions-row">
+                  <div className="tt-player-actions-left">
+                    <button 
+                      className="tt-theater-pill-btn"
+                      onClick={() => handleDownload(selectedVideo.url || selectedVideo.webpage_url)}
+                      title="Tải video gốc không logo về máy"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                      </svg>
+                      Tải không logo
+                    </button>
+
+                    <button 
+                      className="tt-theater-pill-btn"
+                      onClick={() => handleAnalyze(selectedVideo)}
+                      title="Phân tích chiến lược nội dung AI"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                      </svg>
+                      Phân tích AI
+                    </button>
+                  </div>
+
+                  <div className="tt-player-actions-right">
+                    <span className="tt-time-display">
+                      {formatDuration(playerCurrentTime)} / {formatDuration(playerDuration)}
+                    </span>
+
+                    <div className="tt-volume-container">
+                      <button 
+                        className="tt-circle-btn" 
+                        style={{ width: '32px', height: '32px' }}
+                        onClick={() => {
+                          if (videoRef.current) {
+                            const newMuted = !playerIsMuted;
+                            videoRef.current.muted = newMuted;
+                            setPlayerIsMuted(newMuted);
+                          }
+                        }}
+                        title={playerIsMuted ? 'Bật âm thanh' : 'Tắt tiếng'}
+                      >
+                        {playerIsMuted || playerVolume === 0 ? '🔇' : '🔊'}
+                      </button>
+
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="1" 
+                        step="0.05" 
+                        value={playerIsMuted ? 0 : playerVolume} 
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          setPlayerVolume(val);
+                          if (videoRef.current) {
+                            videoRef.current.volume = val;
+                            videoRef.current.muted = val === 0;
+                            setPlayerIsMuted(val === 0);
+                          }
+                        }}
+                        className="tt-volume-slider" 
+                        title="Điều chỉnh âm lượng"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1.5rem 2rem' }}>
-              <video 
-                src={`/api/download?url=${encodeURIComponent(selectedVideo.url || selectedVideo.webpage_url)}&proxy=${encodeURIComponent(proxy || '')}`}
-                controls
-                autoPlay
-                style={{ width: '100%', maxHeight: '60vh', borderRadius: '12px', background: '#000' }}
-              />
-              <div style={{ marginTop: '1.25rem', width: '100%' }}>
-                <h4 style={{ fontSize: '1.1rem', marginBottom: '0.25rem', color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: '2', WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{selectedVideo.title}</h4>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Kênh: @{selectedVideo.uploader_id || selectedVideo.uploader}</p>
+
+            {/* Right Details Panel (TikTok Creator & Shop & Transcript) */}
+            <div className="tt-player-sidebar" onClick={(e) => e.stopPropagation()}>
+              <div className="tt-sidebar-inner">
+                {/* Creator Profile Header */}
+                <div className="tt-player-creator-header">
+                  <div className="tt-player-creator-info">
+                    <img 
+                      src={selectedVideo.thumbnail || channelInfo?.avatar || 'https://www.w3schools.com/howto/img_avatar.png'} 
+                      alt="creator" 
+                      className="tt-player-creator-avatar" 
+                    />
+                    <div className="tt-player-creator-names">
+                      <div className="tt-player-nickname">
+                        {selectedVideo.uploader || channelInfo?.name || selectedVideo.uploader_id || 'Creator'}
+                      </div>
+                      <div className="tt-player-handle-date">
+                        @{selectedVideo.uploader_id || channelInfo?.username || 'user'} • {selectedVideo.duration ? formatDuration(selectedVideo.duration) : 'TikTok'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <a 
+                    href={selectedVideo.webpage_url || selectedVideo.url} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="btn btn-primary"
+                    style={{ padding: '6px 16px', fontSize: '13px' }}
+                  >
+                    Xem trên TikTok
+                  </a>
+                </div>
+
+                {/* Video Caption & Hashtags */}
+                <p className="tt-player-caption">
+                  {selectedVideo.title || selectedVideo.description || 'Không có tiêu đề'}
+                </p>
+
+                {/* Sound / Music Audio Line */}
+                <div className="tt-player-sound-bar">
+                  <span>🎵</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    âm thanh gốc - {selectedVideo.uploader || selectedVideo.uploader_id || 'TikTok Music'}
+                  </span>
+                </div>
+
+                {/* =========================================================
+                    MỤC SẢN PHẨM GIỎ HÀNG TIKTOK SHOP (Special Feature!)
+                    ========================================================= */}
+                {shopProduct ? (
+                  <div className="tt-shop-product-card">
+                    <div className="tt-shop-header">
+                      <span className="tt-shop-badge">
+                        🛍️ Sản phẩm giỏ hàng TikTok Shop
+                      </span>
+                      <span className="tt-shop-pill-tag">
+                        Đang gắn giỏ hàng
+                      </span>
+                    </div>
+
+                    <div className="tt-shop-body">
+                      <div className="tt-shop-icon-box">
+                        {shopProduct.icon || '🛍️'}
+                      </div>
+                      <div className="tt-shop-details">
+                        <div className="tt-shop-title">
+                          {shopProduct.title}
+                        </div>
+                        <div className="tt-shop-desc">
+                          {shopProduct.note || 'Video được gắn liên kết sản phẩm TikTok Shop chính thức (Affiliate / E-commerce)'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <a 
+                      href={shopProduct.url || selectedVideo.webpage_url || selectedVideo.url} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className="tt-shop-action-btn"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <circle cx="9" cy="21" r="1"></circle>
+                        <circle cx="20" cy="21" r="1"></circle>
+                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                      </svg>
+                      Mở xem giỏ hàng sản phẩm trên TikTok ↗
+                    </a>
+                  </div>
+                ) : (
+                  <div style={{ 
+                    padding: '14px 16px', 
+                    borderRadius: '10px', 
+                    background: 'var(--bg-input)', 
+                    border: '1px solid var(--border-light)', 
+                    fontSize: '12px', 
+                    color: 'var(--text-muted)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '10px' 
+                  }}>
+                    <span style={{ fontSize: '18px' }}>ℹ️</span>
+                    <div>
+                      <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '2px' }}>
+                        Video không gắn giỏ hàng TikTok Shop
+                      </strong>
+                      <span>Đây là video sáng tạo nội dung thông thường, không chứa liên kết tiếp thị liên kết (E-commerce).</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Engagement Numbers Row */}
+                <div className="tt-player-stats-row">
+                  <div className="tt-stat-item" title="Lượt thích">
+                    <span className="tt-stat-icon">❤️</span>
+                    <span>{formatViews(selectedVideo.likeCount || 0)}</span>
+                  </div>
+
+                  <div className="tt-stat-item" title="Lượt bình luận">
+                    <span className="tt-stat-icon">💬</span>
+                    <span>{formatViews(selectedVideo.commentCount || 0)}</span>
+                  </div>
+
+                  <div className="tt-stat-item" title="Lượt xem">
+                    <span className="tt-stat-icon">▶</span>
+                    <span>{formatViews(selectedVideo.viewCount || 0)}</span>
+                  </div>
+
+                  <div className="tt-stat-item" title="Lượt chia sẻ">
+                    <span className="tt-stat-icon">🔗</span>
+                    <span>{formatViews(selectedVideo.shareCount || 0)}</span>
+                  </div>
+                </div>
+
+                {/* Copy Link Bar */}
+                <div className="tt-copy-link-bar">
+                  <input 
+                    type="text" 
+                    readOnly 
+                    value={selectedVideo.webpage_url || selectedVideo.url || ''} 
+                    className="tt-copy-link-input" 
+                  />
+                  <button 
+                    className="tt-copy-link-btn" 
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedVideo.webpage_url || selectedVideo.url);
+                      showToast('Đã sao chép link video TikTok!');
+                    }}
+                  >
+                    Sao chép
+                  </button>
+                </div>
+
+                {/* Action buttons row */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <button 
+                    className="btn btn-secondary" 
+                    onClick={() => handleGetScript(selectedVideo)}
+                    style={{ fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  >
+                    🎙️ Lấy kịch bản thoại
+                  </button>
+                  <button 
+                    className="btn btn-secondary" 
+                    onClick={() => handleAnalyze(selectedVideo)}
+                    style={{ fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  >
+                    ✨ Phân tích AI
+                  </button>
+                </div>
+
+                {/* Dual Tabs: Kịch bản / Phân tích AI */}
+                <div className="tt-player-tabs">
+                  <button 
+                    className={`tt-player-tab ${playerTab === 'info' ? 'active' : ''}`}
+                    onClick={() => setPlayerTab('info')}
+                  >
+                    Thông tin chi tiết
+                  </button>
+                  <button 
+                    className={`tt-player-tab ${playerTab === 'script' ? 'active' : ''}`}
+                    onClick={() => setPlayerTab('script')}
+                  >
+                    Kịch bản thoại
+                  </button>
+                  <button 
+                    className={`tt-player-tab ${playerTab === 'analysis' ? 'active' : ''}`}
+                    onClick={() => setPlayerTab('analysis')}
+                  >
+                    Chiến lược AI
+                  </button>
+                </div>
+
+                {/* Tab content area */}
+                <div style={{ flexGrow: 1, minHeight: '180px' }}>
+                  {playerTab === 'info' && (
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                      <p><strong>ID Video:</strong> <code>{selectedVideo.id}</code></p>
+                      <p style={{ marginTop: '6px' }}><strong>Kênh tạo:</strong> @{selectedVideo.uploader_id || selectedVideo.uploader}</p>
+                      <p style={{ marginTop: '6px' }}><strong>Mẹo:</strong> Sử dụng phím mũi tên <strong>Trái / Phải</strong> để tua nhanh 5s, hoặc bấm vào thanh tiến trình bên dưới để xem bất kỳ đoạn nào bạn muốn!</p>
+                    </div>
+                  )}
+
+                  {playerTab === 'script' && (
+                    <div style={{ background: 'var(--bg-input)', padding: '14px', borderRadius: '8px', fontSize: '13px', lineHeight: '1.7', whiteSpace: 'pre-wrap', maxHeight: '300px', overflowY: 'auto' }}>
+                      {currentHistoryItem?.transcript ? (
+                        currentHistoryItem.transcript
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '16px' }}>
+                          <p style={{ color: 'var(--text-muted)', marginBottom: '8px' }}>Chưa trích xuất kịch bản thoại cho video này.</p>
+                          <button className="btn btn-primary" onClick={() => handleGetScript(selectedVideo)}>
+                            Dịch kịch bản ngay
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {playerTab === 'analysis' && (
+                    <div style={{ background: 'var(--bg-input)', padding: '14px', borderRadius: '8px', fontSize: '13px', lineHeight: '1.7', maxHeight: '300px', overflowY: 'auto' }}>
+                      {currentHistoryItem?.analysis ? (
+                        <div dangerouslySetInnerHTML={{ __html: parseMarkdown(currentHistoryItem.analysis) }} />
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '16px' }}>
+                          <p style={{ color: 'var(--text-muted)', marginBottom: '8px' }}>Chưa chạy phân tích chiến lược AI.</p>
+                          <button className="btn btn-primary" onClick={() => handleAnalyze(selectedVideo)}>
+                            Chạy phân tích AI ngay
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Settings Modal */}
       {activeModal === 'settings' && (

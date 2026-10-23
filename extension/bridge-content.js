@@ -70,3 +70,14 @@ window.addEventListener('message', (event) => {
     }
   }
 });
+
+// Listen for progress events from background service worker and relay to React
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg && msg.action === 'SCRAPE_PROGRESS') {
+    window.postMessage({
+      type: 'ZVIBE_CHANNEL_SCAN_PROGRESS',
+      count: msg.count,
+      limit: msg.limit
+    }, '*');
+  }
+});

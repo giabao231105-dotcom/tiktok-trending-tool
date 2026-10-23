@@ -118,6 +118,41 @@ async function fetchVideoInfoFromTikWM(videoUrl) {
     if (json.code === 0 && json.data) {
       console.log('TikWM metadata fetched successfully.');
       const d = json.data;
+      // Extract TikTok Shop product anchor if attached
+      let shopProduct = null;
+      if (d.anchors && Array.isArray(d.anchors) && d.anchors.length > 0) {
+        const p = d.anchors[0];
+        shopProduct = {
+          title: p.keyword || p.name || 'Sản phẩm TikTok Shop',
+          type: p.type || 'Shop',
+          icon: p.icon || '🛍️',
+          url: p.url || p.schema || videoUrl,
+          isAffiliate: true
+        };
+      } else if (d.commerce_info) {
+        shopProduct = {
+          title: d.commerce_info.adv_promoter || 'Sản phẩm Giỏ hàng TikTok Shop',
+          type: 'Shop',
+          icon: '🛍️',
+          url: videoUrl,
+          isAffiliate: true
+        };
+      } else {
+        const caption = (d.title || '').toLowerCase();
+        const hasShopMention = /giỏ hàng|tiktokshop|tiktok shop|sản phẩm|mua tại|gắn ở góc|link mua|bấm vào giỏ/i.test(caption);
+        if (hasShopMention) {
+          const match = caption.match(/(?:mua tại|giỏ hàng|sản phẩm)[:\s]+([^#\n.]+)/i);
+          shopProduct = {
+            title: match ? match[1].trim() : 'Sản phẩm được gắn trong Giỏ hàng (Góc trái video)',
+            type: 'DetectedShop',
+            icon: '🛒',
+            url: videoUrl,
+            isAffiliate: true,
+            note: 'Phát hiện liên kết giỏ hàng TikTok Shop từ nội dung'
+          };
+        }
+      }
+
       return {
         id: d.id,
         title: d.title || 'No Title',
@@ -133,6 +168,7 @@ async function fetchVideoInfoFromTikWM(videoUrl) {
         webpage_url: videoUrl,
         playUrl: d.play, // no watermark video
         musicUrl: d.music, // audio stream
+        shopProduct: shopProduct
       };
     } else {
       throw new Error(json.msg || 'TikWM API returned non-zero code');
@@ -312,6 +348,67 @@ app.get('/api/download', async (req, res) => {
   } catch (error) {
     console.error('Error downloading video:', error);
     res.status(500).send(`Download failed: ${error.message}`);
+  }
+});
+
+// Endpoint to stream video with seeking / scrubbing support (HTTP Range)
+app.get('/api/stream-video', async (req, res) => {
+  const { url, proxy = null } = req.query;
+
+  if (!url) {
+    return res.status(400).send('Video URL is required');
+  }
+
+  try {
+    let videoData = await fetchVideoInfoFromTikWM(url);
+    let directVideoUrl = null;
+
+    if (videoData && videoData.playUrl) {
+      directVideoUrl = videoData.playUrl;
+    } else {
+      const info = await ytdlp.getVideoInfo(url, proxy);
+      const formats = info.formats || [];
+      const mergedFormats = formats.filter(f => f.vcodec && f.vcodec !== 'none' && f.acodec && f.acodec !== 'none');
+      let selectedFormat = mergedFormats.find(f => f.format_id && !f.format_id.includes('watermark')) || mergedFormats[0] || formats[0];
+      directVideoUrl = selectedFormat ? selectedFormat.url : info.url;
+    }
+
+    if (!directVideoUrl) {
+      return res.status(404).send('Direct video URL not found');
+    }
+
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Referer': 'https://www.tiktok.com/'
+    };
+
+    if (req.headers.range) {
+      headers['Range'] = req.headers.range;
+    }
+
+    const cdnResponse = await fetch(directVideoUrl, { headers });
+
+    res.status(cdnResponse.status);
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Content-Disposition', 'inline');
+    
+    const contentRange = cdnResponse.headers.get('content-range');
+    if (contentRange) {
+      res.setHeader('Content-Range', contentRange);
+    }
+    const contentLength = cdnResponse.headers.get('content-length');
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
+
+    const { Readable } = require('stream');
+    const nodeStream = Readable.fromWeb(cdnResponse.body);
+    nodeStream.pipe(res);
+
+  } catch (error) {
+    console.error('Error streaming video:', error);
+    res.status(500).send(`Stream failed: ${error.message}`);
   }
 });
 

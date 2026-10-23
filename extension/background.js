@@ -26,19 +26,26 @@ async function handleScanChannel(request, sender, sendResponse) {
   let tiktokTabId = null;
   let isDone = false;
 
-  // Timeout guard (60 seconds) in case of unexpected delays
-  const timeoutGuard = setTimeout(async () => {
-    if (!isDone) {
-      isDone = true;
-      cleanup();
-      sendResponse({
-        success: false,
-        error: 'Quá thời gian quét kênh (Timeout 60s). Vui lòng thử lại.'
-      });
-    }
-  }, 60000);
+  // Dynamic Timeout guard - resets whenever new progress is made
+  const resetTimeout = (seconds = 90) => {
+    if (timeoutGuard) clearTimeout(timeoutGuard);
+    timeoutGuard = setTimeout(async () => {
+      if (!isDone) {
+        isDone = true;
+        cleanup();
+        sendResponse({
+          success: false,
+          error: `Đã tạm dừng do kênh không phản hồi thêm video mới (${seconds}s). Vui lòng thử lại.`
+        });
+      }
+    }, seconds * 1000);
+  };
+
+  let timeoutGuard = null;
+  resetTimeout(limit >= 9999 ? 120 : 60);
 
   const cleanup = async () => {
+    if (timeoutGuard) clearTimeout(timeoutGuard);
     chrome.runtime.onMessage.removeListener(tiktokListener);
     if (tiktokTabId) {
       try {
@@ -65,10 +72,23 @@ async function handleScanChannel(request, sender, sendResponse) {
         } catch (err) {
           console.error('[ZVibe BG] Error sending EXECUTE_SCRAPE:', err);
         }
+      } else if (msg.action === 'SCRAPE_PROGRESS') {
+        // Reset timeout guard since the scraper is actively finding videos
+        resetTimeout(limit >= 9999 ? 120 : 60);
+        // Relay progress to caller tab
+        if (callerTabId) {
+          try {
+            chrome.tabs.sendMessage(callerTabId, {
+              action: 'SCRAPE_PROGRESS',
+              count: msg.count,
+              limit: msg.limit
+            });
+          } catch (_) {}
+        }
       } else if (msg.action === 'SCRAPE_FINISHED') {
         if (!isDone) {
           isDone = true;
-          clearTimeout(timeoutGuard);
+          if (timeoutGuard) clearTimeout(timeoutGuard);
           console.log(`[ZVibe BG] Scrape complete! Found ${msg.videos?.length || 0} videos.`);
           await cleanup();
           sendResponse({
@@ -82,7 +102,7 @@ async function handleScanChannel(request, sender, sendResponse) {
       } else if (msg.action === 'SCRAPE_FAILED') {
         if (!isDone) {
           isDone = true;
-          clearTimeout(timeoutGuard);
+          if (timeoutGuard) clearTimeout(timeoutGuard);
           console.warn('[ZVibe BG] Scrape reported failure:', msg.error);
           await cleanup();
           sendResponse({
