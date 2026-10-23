@@ -27,28 +27,13 @@ async function handleScanChannel(request, sender, sendResponse) {
   const callerTabId = sender?.tab?.id;
   let tiktokTabId = null;
   let isDone = false;
-
-  // Dynamic Timeout guard - resets whenever new progress is made
-  const resetTimeout = (seconds = 90) => {
-    if (timeoutGuard) clearTimeout(timeoutGuard);
-    timeoutGuard = setTimeout(async () => {
-      if (!isDone) {
-        isDone = true;
-        cleanup();
-        sendResponse({
-          success: false,
-          error: `Đã tạm dừng do kênh không phản hồi thêm video mới (${seconds}s). Vui lòng thử lại.`
-        });
-      }
-    }, seconds * 1000);
-  };
-
-  let timeoutGuard = null;
-  resetTimeout(limit >= 9999 ? 120 : 60);
+  let latestVideos = [];
+  let latestMeta = {};
 
   const cleanup = async () => {
     if (timeoutGuard) clearTimeout(timeoutGuard);
     chrome.runtime.onMessage.removeListener(tiktokListener);
+    chrome.tabs.onUpdated.removeListener(tabUpdateListener);
     if (tiktokTabId) {
       try {
         await chrome.tabs.remove(tiktokTabId);
@@ -62,21 +47,76 @@ async function handleScanChannel(request, sender, sendResponse) {
     }
   };
 
+  // Dynamic Timeout guard - resets whenever progress or scrolling is happening
+  let timeoutGuard = null;
+  const resetTimeout = (seconds = 90) => {
+    if (timeoutGuard) clearTimeout(timeoutGuard);
+    timeoutGuard = setTimeout(async () => {
+      if (!isDone) {
+        isDone = true;
+        // If we already collected videos, return them gracefully instead of failing!
+        if (latestVideos && latestVideos.length > 0) {
+          console.log(`[ZVibe BG] Timeout reached, but returning ${latestVideos.length} already collected videos.`);
+          await cleanup();
+          sendResponse({
+            success: true,
+            videos: latestVideos,
+            uploader: latestMeta.uploader || '',
+            uploaderId: latestMeta.uploaderId || '',
+            avatar: latestMeta.avatar || ''
+          });
+        } else {
+          await cleanup();
+          sendResponse({
+            success: false,
+            error: `Đã tạm dừng do kênh không phản hồi thêm video mới (${seconds}s). Vui lòng thử lại.`
+          });
+        }
+      }
+    }, seconds * 1000);
+  };
+
+  // Generous initial timeout (180s for all, 90s otherwise)
+  resetTimeout(limit >= 9999 ? 180 : 90);
+
+  const triggerScrape = async () => {
+    if (!tiktokTabId || isDone) return;
+    try {
+      await chrome.tabs.sendMessage(tiktokTabId, {
+        action: 'EXECUTE_SCRAPE',
+        limit: limit
+      });
+      console.log('[ZVibe BG] Sent EXECUTE_SCRAPE to tab:', tiktokTabId);
+    } catch (_) {}
+  };
+
+  const tabUpdateListener = (tabId, changeInfo) => {
+    if (tabId === tiktokTabId && changeInfo.status === 'complete') {
+      setTimeout(triggerScrape, 1200);
+    }
+  };
+  chrome.tabs.onUpdated.addListener(tabUpdateListener);
+
   const tiktokListener = async (msg, msgSender) => {
     if (msgSender.tab && msgSender.tab.id === tiktokTabId) {
       if (msg.action === 'TIKTOK_PAGE_READY') {
         console.log('[ZVibe BG] TikTok page ready, sending EXECUTE_SCRAPE command...');
-        try {
-          await chrome.tabs.sendMessage(tiktokTabId, {
-            action: 'EXECUTE_SCRAPE',
-            limit: limit
-          }).catch(() => {});
-        } catch (err) {
-          console.warn('[ZVibe BG] Notice sending EXECUTE_SCRAPE:', err);
-        }
+        await triggerScrape();
       } else if (msg.action === 'SCRAPE_PROGRESS') {
-        // Reset timeout guard since the scraper is actively finding videos
+        // Reset timeout guard since the scraper is actively working
         resetTimeout(limit >= 9999 ? 120 : 60);
+
+        if (msg.videos && Array.isArray(msg.videos) && msg.videos.length > 0) {
+          latestVideos = msg.videos;
+        }
+        if (msg.uploader || msg.uploaderId) {
+          latestMeta = {
+            uploader: msg.uploader || latestMeta.uploader,
+            uploaderId: msg.uploaderId || latestMeta.uploaderId,
+            avatar: msg.avatar || latestMeta.avatar
+          };
+        }
+
         // Relay progress to caller tab
         if (callerTabId) {
           try {
@@ -95,10 +135,10 @@ async function handleScanChannel(request, sender, sendResponse) {
           await cleanup();
           sendResponse({
             success: true,
-            videos: msg.videos || [],
-            uploader: msg.uploader || '',
-            uploaderId: msg.uploaderId || '',
-            avatar: msg.avatar || ''
+            videos: (msg.videos && msg.videos.length > 0) ? msg.videos : latestVideos,
+            uploader: msg.uploader || latestMeta.uploader || '',
+            uploaderId: msg.uploaderId || latestMeta.uploaderId || '',
+            avatar: msg.avatar || latestMeta.avatar || ''
           });
         }
       } else if (msg.action === 'SCRAPE_FAILED') {
@@ -125,8 +165,11 @@ async function handleScanChannel(request, sender, sendResponse) {
       active: true
     });
     tiktokTabId = tab.id;
+    // Schedule backup triggers in case page loaded faster than listener registration
+    setTimeout(triggerScrape, 2000);
+    setTimeout(triggerScrape, 4000);
   } catch (err) {
-    clearTimeout(timeoutGuard);
+    if (timeoutGuard) clearTimeout(timeoutGuard);
     cleanup();
     sendResponse({
       success: false,

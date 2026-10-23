@@ -1,7 +1,8 @@
 // tiktok-scraper.js - Injected into TikTok to scrape channel video links and exact TikTok Shop products
-console.log('[ZVibe Extension] TikTok Scraper & Shop Extractor injected into:', window.location.href);
+console.log('[ZVibe Extension] TikTok Scraper & Shop Extractor active in:', window.location.href);
 
 let overlayEl = null;
+let isScrapingActive = false;
 const itemDetailsCache = new Map();
 
 // Inject network interceptor to capture TikTok's /api/post/item_list and /item/detail responses
@@ -147,7 +148,10 @@ function cacheItemData(item) {
       commentCount: Number(stats.commentCount) || 0,
       shareCount: Number(stats.shareCount) || 0
     },
-    shopProduct: shopProduct
+    shopProduct: shopProduct,
+    thumbnail: item.video?.cover || item.video?.originCover || item.video?.dynamicCover || '',
+    duration: Number(item.video?.duration) || null,
+    author: item.author?.uniqueId || item.author?.nickname || ''
   });
 }
 
@@ -168,7 +172,7 @@ function readInitialDOMRehydration() {
       }
     }
   } catch (err) {
-    console.warn('[ZVibe Scraper] Could not parse initial rehydration state:', err);
+    console.warn('[ZVibe Scraper] Notice parsing initial rehydration state:', err);
   }
 }
 
@@ -185,60 +189,97 @@ window.addEventListener('message', (e) => {
   }
 });
 
-readInitialDOMRehydration();
-
+// Create and show high-tech on-screen progress overlay on the TikTok page
 function createProgressOverlay() {
   if (overlayEl) return;
   overlayEl = document.createElement('div');
   overlayEl.id = 'zvibe-scraper-overlay';
-  overlayEl.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 999999999;
-    background: #ffffff;
-    color: #161823;
-    padding: 16px 20px;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15), 0 0 1px rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(22, 24, 35, 0.12);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    min-width: 280px;
-    max-width: 360px;
-    backdrop-filter: blur(8px);
-    transition: all 0.3s ease;
-  `;
-
   overlayEl.innerHTML = `
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <div style="width: 10px; height: 10px; border-radius: 50%; background: #22c55e;"></div>
-        <strong style="font-size: 14px; font-weight: 700; color: #161823;">TikTok Studio Scraper</strong>
+    <div style="
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999999;
+      background: rgba(18, 18, 18, 0.94);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(254, 44, 85, 0.4);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      border-radius: 14px;
+      padding: 16px 20px;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-width: 320px;
+      max-width: 400px;
+      pointer-events: none;
+      animation: zvibeSlideUp 0.3s ease-out;
+    ">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+        <div style="
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #FE2C55, #25F4EE);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 15px;
+          animation: zvibeSpin 2s linear infinite;
+        ">⚡</div>
+        <div>
+          <div style="font-weight: 700; font-size: 14px; color: #fff;">ZVibe TikTok Helper</div>
+          <div style="font-size: 11px; color: #a1a1aa;">Đang tự động quét & bóc tách video...</div>
+        </div>
       </div>
-      <span style="font-size: 11px; font-weight: 700; color: #FE2C55; background: rgba(254,44,85,0.08); padding: 2px 6px; border-radius: 4px;">v2.0.0</span>
+      <div id="zvibe-scrape-status" style="font-size: 12px; margin-bottom: 6px; color: #e4e4e7;">
+        Đang chuẩn bị...
+      </div>
+      <div style="
+        background: rgba(255, 255, 255, 0.1);
+        height: 6px;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-bottom: 8px;
+      ">
+        <div id="zvibe-scrape-bar" style="
+          width: 0%;
+          height: 100%;
+          background: linear-gradient(90deg, #FE2C55, #25F4EE);
+          transition: width 0.3s ease;
+        "></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 11px; color: #71717a;">
+        <span id="zvibe-scrape-counter">Đã quét: 0 video</span>
+        <span style="color: #25F4EE;">24/7 Auto-scroll</span>
+      </div>
     </div>
-    <div id="zvibe-status-text" style="font-size: 13px; color: #73747b; margin-bottom: 6px;">
-      Đang chuẩn bị quét danh sách video...
-    </div>
-    <div id="zvibe-counter" style="font-size: 15px; font-weight: 700; color: #FE2C55;">
-      Đã quét: 0 video
-    </div>
-    <div style="margin-top: 8px; font-size: 11px; color: #a1a1aa; font-style: italic;">
-      Vui lòng không tắt tab này, hệ thống sẽ tự đóng khi hoàn tất...
-    </div>
+    <style>
+      @keyframes zvibeSlideUp {
+        from { transform: translateY(30px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      @keyframes zvibeSpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
   `;
-
   document.body.appendChild(overlayEl);
 }
 
-function updateOverlay(text, count, limit) {
-  if (!overlayEl) createProgressOverlay();
-  const statusEl = document.getElementById('zvibe-status-text');
-  const counterEl = document.getElementById('zvibe-counter');
-  if (statusEl) statusEl.innerText = text;
+function updateOverlay(status, count, limit) {
+  if (!overlayEl) return;
+  const statusEl = overlayEl.querySelector('#zvibe-scrape-status');
+  const barEl = overlayEl.querySelector('#zvibe-scrape-bar');
+  const counterEl = overlayEl.querySelector('#zvibe-scrape-counter');
+
+  if (statusEl) statusEl.innerText = status;
+  if (barEl) {
+    const pct = limit > 0 ? Math.min(100, Math.round((count / limit) * 100)) : 100;
+    barEl.style.width = `${pct}%`;
+  }
   if (counterEl) {
     if (limit >= 9999) {
-      counterEl.innerText = `Đã quét: ${count} video (Đang cào toàn bộ kênh...)`;
+      counterEl.innerText = `Đã quét: ${count} video (Toàn bộ kênh)`;
     } else {
       counterEl.innerText = `Đã quét: ${count} / ${limit} video`;
     }
@@ -264,7 +305,7 @@ function parseCount(text) {
 
 // Extract unique video cards with rich metadata directly from the DOM & cache
 function extractVideoItems(uploader, uploaderId) {
-  // Confine search strictly to user post list grid to avoid grabbing sidebar or reposted videos
+  // Confine search strictly to user post list grid to avoid grabbing sidebar or unrelated videos
   const gridContainer = document.querySelector('[data-e2e="user-post-item-list"]') || 
                         document.querySelector('div[class*="DivItemContainerV2"]') || 
                         document.querySelector('div[class*="UserPostItemList"]') ||
@@ -279,15 +320,24 @@ function extractVideoItems(uploader, uploaderId) {
     if (match) {
       const vid = match[1];
 
-      // Strict author verification:
-      // If the link explicitly has an @username and it doesn't match uploaderId, skip it!
+      // Smart author & repost verification:
       const linkAuthorMatch = href.match(/tiktok\.com\/@([a-zA-Z0-9_.-]+)\/video/i);
       if (linkAuthorMatch && uploaderId) {
         const linkAuthor = linkAuthorMatch[1].toLowerCase().replace('@', '');
         const targetAuthor = uploaderId.toLowerCase().replace('@', '');
-        if (linkAuthor !== targetAuthor) {
-          // Skip videos reposted or linked from other accounts
-          continue;
+        const isNumericId = /^\d+$/.test(linkAuthor);
+
+        // If linkAuthor is a distinct username (not numeric ID) and does NOT match targetAuthor:
+        if (!isNumericId && linkAuthor !== targetAuthor) {
+          // Check if card has explicit repost badge or text
+          const card = a.closest('[data-e2e="user-post-item"]') || a.closest('div[class*="DivItemContainer"]') || a.parentElement || a;
+          const isRepost = card.querySelector('[data-e2e*="repost"]') || 
+                           card.querySelector('[class*="Repost"]') || 
+                           /đã đăng lại|repost/i.test(card.innerText || '');
+          if (isRepost || linkAuthor.length > 2) {
+            // Skip videos reposted or linked from other creators
+            continue;
+          }
         }
       }
 
@@ -302,7 +352,7 @@ function extractVideoItems(uploader, uploaderId) {
         
         // Thumbnail
         const img = a.querySelector('img') || card.querySelector('img');
-        const thumbnail = img?.src || '';
+        const thumbnail = img?.src || img?.dataset?.src || '';
 
         // Title / Description
         const title = img?.alt || a.getAttribute('title') || card.querySelector('[data-e2e="user-post-item-desc"]')?.innerText || 'TikTok Video';
@@ -367,11 +417,12 @@ function extractVideoItems(uploader, uploaderId) {
           id: vid,
           title: cached?.title || title || 'TikTok Video',
           description: cached?.title || title || '',
-          thumbnail: thumbnail,
+          thumbnail: cached?.thumbnail || thumbnail || '',
           viewCount: viewCount,
           likeCount: cached?.stats?.diggCount || 0,
           commentCount: cached?.stats?.commentCount || 0,
           shareCount: cached?.stats?.shareCount || 0,
+          duration: cached?.duration || null,
           webpage_url: cleanUrl,
           url: cleanUrl,
           uploader: uploader || '',
@@ -428,20 +479,19 @@ async function startAutoScrollScrape(targetLimit = 30) {
   const meta = getChannelMetadata();
   const allVideos = new Map();
   let idleScrolls = 0;
-  const maxIdleScrolls = targetLimit >= 100 ? 15 : 8;
+  // If no new videos found for 6 consecutive scrolls, channel has ended!
+  const maxIdleScrolls = 6;
 
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   // Initial wait for dynamic TikTok items to render
   await wait(1800);
 
-  let lastReportedCount = 0;
-  let prevScrollHeight = 0;
-
   while (allVideos.size < targetLimit && idleScrolls < maxIdleScrolls) {
-    const currentBatch = extractVideoItems(meta.uploader, meta.uploaderId);
     let newItemsFound = 0;
 
+    // 1. Extract from DOM cards
+    const currentBatch = extractVideoItems(meta.uploader, meta.uploaderId);
     for (const [vid, item] of currentBatch.entries()) {
       if (!allVideos.has(vid)) {
         allVideos.set(vid, item);
@@ -450,20 +500,57 @@ async function startAutoScrollScrape(targetLimit = 30) {
       }
     }
 
-    // Send progress heartbeat to background to reset timeout and update UI
-    if (allVideos.size !== lastReportedCount) {
-      lastReportedCount = allVideos.size;
-      try {
-        chrome.runtime.sendMessage({
-          action: 'SCRAPE_PROGRESS',
-          count: allVideos.size,
-          limit: targetLimit
+    // 2. Incorporate from intercepted network cache as well (handles virtualized DOM unmounting)
+    for (const [vid, cached] of itemDetailsCache.entries()) {
+      if (!allVideos.has(vid)) {
+        if (cached.author && meta.uploaderId) {
+          const cAuthor = cached.author.toLowerCase().replace('@', '');
+          const tAuthor = meta.uploaderId.toLowerCase().replace('@', '');
+          if (cAuthor !== tAuthor && !/^\d+$/.test(cAuthor)) {
+            continue;
+          }
+        }
+        const cleanUrl = meta.uploaderId 
+          ? `https://www.tiktok.com/@${meta.uploaderId.replace(/^@+/, '')}/video/${vid}` 
+          : `https://www.tiktok.com/video/${vid}`;
+
+        allVideos.set(vid, {
+          id: vid,
+          title: cached.title || 'TikTok Video',
+          description: cached.title || '',
+          thumbnail: cached.thumbnail || '',
+          viewCount: cached.stats.playCount || 0,
+          likeCount: cached.stats.diggCount || 0,
+          commentCount: cached.stats.commentCount || 0,
+          shareCount: cached.stats.shareCount || 0,
+          duration: cached.duration || null,
+          webpage_url: cleanUrl,
+          url: cleanUrl,
+          uploader: meta.uploader || '',
+          uploader_id: meta.uploaderId || '',
+          shopProduct: cached.shopProduct || null
         });
-      } catch (_) {}
+        newItemsFound++;
+        if (allVideos.size >= targetLimit) break;
+      }
     }
 
+    // Send progress heartbeat to background on EVERY cycle so background timeout never fires unexpectedly
+    try {
+      chrome.runtime.sendMessage({
+        action: 'SCRAPE_PROGRESS',
+        count: allVideos.size,
+        limit: targetLimit,
+        isScrolling: true,
+        videos: Array.from(allVideos.values()),
+        uploader: meta.uploader,
+        uploaderId: meta.uploaderId,
+        avatar: meta.avatar
+      }).catch(() => {});
+    } catch (_) {}
+
     updateOverlay(
-      allVideos.size >= targetLimit ? 'Đã thu thập đủ số lượng video!' : 'Đang cuộn tải thêm video...',
+      allVideos.size >= targetLimit ? 'Đã thu thập đủ số lượng video!' : `Đang cuộn cào video (Đã có ${allVideos.size} video)...`,
       allVideos.size,
       targetLimit
     );
@@ -472,15 +559,16 @@ async function startAutoScrollScrape(targetLimit = 30) {
       break;
     }
 
-    const currentScrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
-
-    if (newItemsFound === 0 && currentScrollHeight === prevScrollHeight) {
+    // Correct idle scroll detection: increment when NO new items were found in this pass
+    if (newItemsFound === 0) {
       idleScrolls++;
-      console.log(`[ZVibe Scraper] Idle attempt ${idleScrolls} / ${maxIdleScrolls}`);
+      console.log(`[ZVibe Scraper] Không thấy video mới, kiểm tra lần: ${idleScrolls} / ${maxIdleScrolls}`);
     } else {
       idleScrolls = 0;
     }
-    prevScrollHeight = currentScrollHeight;
+
+    // Scroll actions to trigger TikTok's lazy loader
+    const currentScrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
 
     // STEP 1: Scroll to bottom of the entire page
     window.scrollTo({
@@ -496,20 +584,24 @@ async function startAutoScrollScrape(targetLimit = 30) {
       } catch (_) {}
     }
 
-    // STEP 3: Wait for TikTok's network response
-    await wait(1300 + Math.floor(Math.random() * 400));
+    // Dispatch scroll & wheel events
+    window.dispatchEvent(new Event('scroll'));
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: 1000 }));
 
-    // STEP 4: Scroll jiggle (scroll up 350px then down 450px) to force re-evaluation of IntersectionObserver
-    window.scrollBy({ top: -350, behavior: 'instant' });
-    await wait(200);
-    window.scrollBy({ top: 450, behavior: 'instant' });
+    // STEP 3: Wait for TikTok's network response
+    await wait(1200 + Math.floor(Math.random() * 300));
+
+    // STEP 4: Scroll jiggle (scroll up 300px then down 400px) to re-trigger IntersectionObserver
+    window.scrollBy({ top: -300, behavior: 'instant' });
+    await wait(180);
+    window.scrollBy({ top: 400, behavior: 'instant' });
     window.dispatchEvent(new Event('scroll'));
 
-    // Wait for DOM cards to be rendered
-    await wait(900 + Math.floor(Math.random() * 300));
+    // Wait for DOM cards to render
+    await wait(800 + Math.floor(Math.random() * 200));
   }
 
-  // Final check
+  // Final check & report
   const videoItems = Array.from(allVideos.values());
   const videoUrls = videoItems.map(v => v.webpage_url || v.url);
 
@@ -535,25 +627,33 @@ async function startAutoScrollScrape(targetLimit = 30) {
 // Listen for execution command from background service worker
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'EXECUTE_SCRAPE') {
-    const limit = Number(request.limit) || 30;
-    startAutoScrollScrape(limit);
+    if (!isScrapingActive) {
+      isScrapingActive = true;
+      const limit = Number(request.limit) || 30;
+      console.log('[ZVibe Scraper] Received EXECUTE_SCRAPE with limit:', limit);
+      startAutoScrollScrape(limit);
+    }
     sendResponse({ received: true });
   }
 });
 
-// Inform background that the TikTok page is loaded and ready
-if (document.readyState === 'complete' || document.readyState === 'interactive') {
-  setTimeout(() => {
+// Inform background that the TikTok page is loaded and ready (send multiple pings)
+function notifyBackgroundReady() {
+  if (!isScrapingActive) {
     try {
       chrome.runtime.sendMessage({ action: 'TIKTOK_PAGE_READY' }).catch(() => {});
     } catch (_) {}
-  }, 1000);
+  }
+}
+
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  setTimeout(notifyBackgroundReady, 600);
+  setTimeout(notifyBackgroundReady, 1800);
+  setTimeout(notifyBackgroundReady, 3500);
 } else {
   window.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-      try {
-        chrome.runtime.sendMessage({ action: 'TIKTOK_PAGE_READY' }).catch(() => {});
-      } catch (_) {}
-    }, 1000);
+    setTimeout(notifyBackgroundReady, 600);
+    setTimeout(notifyBackgroundReady, 1800);
+    setTimeout(notifyBackgroundReady, 3500);
   });
 }
