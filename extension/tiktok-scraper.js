@@ -60,13 +60,16 @@ function updateOverlay(text, count, limit) {
 
 function parseCount(text) {
   if (!text) return 0;
-  text = text.trim().toUpperCase();
-  if (text.endsWith('M')) {
-    return Math.round(parseFloat(text) * 1000000);
-  } else if (text.endsWith('K')) {
-    return Math.round(parseFloat(text) * 1000);
-  } else if (text.endsWith('B')) {
-    return Math.round(parseFloat(text) * 1000000000);
+  text = String(text).trim().toUpperCase().replace(/,/g, '.').replace(/\s+/g, '');
+  if (text.includes('M')) {
+    const num = parseFloat(text);
+    return Math.round((isNaN(num) ? 0 : num) * 1000000);
+  } else if (text.includes('K')) {
+    const num = parseFloat(text);
+    return Math.round((isNaN(num) ? 0 : num) * 1000);
+  } else if (text.includes('B')) {
+    const num = parseFloat(text);
+    return Math.round((isNaN(num) ? 0 : num) * 1000000000);
   }
   const clean = text.replace(/[^0-9.]/g, '');
   return parseInt(clean, 10) || 0;
@@ -96,8 +99,26 @@ function extractVideoItems(uploader, uploaderId) {
         const title = img?.alt || a.getAttribute('title') || card.querySelector('[data-e2e="user-post-item-desc"]')?.innerText || 'TikTok Video';
 
         // Views count from card overlay
-        const viewEl = card.querySelector('[data-e2e="video-views"]') || card.querySelector('strong') || card.querySelector('[class*="VideoCount"]');
-        const viewCount = parseCount(viewEl?.innerText);
+        let viewText = '';
+        const viewEl = card.querySelector('[data-e2e="video-views"]') || 
+                       card.querySelector('strong') || 
+                       card.querySelector('[data-e2e*="view"]') ||
+                       card.querySelector('[class*="VideoCount"]') ||
+                       card.querySelector('[class*="PlayCount"]') ||
+                       card.querySelector('[class*="count"]');
+        if (viewEl) {
+          viewText = viewEl.innerText || viewEl.textContent || '';
+        }
+        if (!viewText) {
+          const strongEl = a.querySelector('strong') || a.querySelector('span');
+          if (strongEl) viewText = strongEl.innerText || '';
+        }
+        if (!viewText) {
+          const cardText = card.innerText || '';
+          const matchNum = cardText.match(/(\d+[.,]?\d*\s*[KkMmBb]?)/);
+          if (matchNum) viewText = matchNum[1];
+        }
+        const viewCount = parseCount(viewText);
 
         // Detect TikTok Shop product anchor if present
         const anchorEl = card.querySelector('[data-e2e*="anchor"]') || 
@@ -170,23 +191,24 @@ function getChannelMetadata() {
   return { uploader: uploader || uploaderId, uploaderId, avatar };
 }
 
-// Perform smooth auto-scroll to collect videos up to `limit`
+// Perform smooth auto-scroll to collect ALL videos up to `targetLimit`
 async function startAutoScrollScrape(targetLimit = 30) {
   createProgressOverlay();
-  updateOverlay('Đang cuộn trang thu thập video...', 0, targetLimit);
+  updateOverlay('Đang kết nối và chuẩn bị quét video...', 0, targetLimit);
 
   const meta = getChannelMetadata();
   const allVideos = new Map();
   let idleScrolls = 0;
-  // If targetLimit >= 9999, user wants ALL videos to the very bottom; wait up to 8 idle scrolls before considering end of channel
-  const maxIdleScrolls = targetLimit >= 9999 ? 8 : 5;
+  // If targetLimit >= 100, allow up to 15 idle checks so large channels don't stop prematurely
+  const maxIdleScrolls = targetLimit >= 100 ? 15 : 8;
 
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   // Initial wait for dynamic TikTok items to render
-  await wait(1500);
+  await wait(1800);
 
   let lastReportedCount = 0;
+  let prevScrollHeight = 0;
 
   while (allVideos.size < targetLimit && idleScrolls < maxIdleScrolls) {
     const currentBatch = extractVideoItems(meta.uploader, meta.uploaderId);
@@ -222,20 +244,41 @@ async function startAutoScrollScrape(targetLimit = 30) {
       break;
     }
 
-    if (newItemsFound === 0) {
+    const currentScrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
+
+    if (newItemsFound === 0 && currentScrollHeight === prevScrollHeight) {
       idleScrolls++;
+      console.log(`[ZVibe Scraper] Idle attempt ${idleScrolls} / ${maxIdleScrolls}`);
     } else {
       idleScrolls = 0;
     }
+    prevScrollHeight = currentScrollHeight;
 
-    // Scroll down gradually
-    window.scrollBy({
-      top: 1200,
-      behavior: 'smooth'
+    // STEP 1: Scroll to bottom of the entire page
+    window.scrollTo({
+      top: currentScrollHeight,
+      behavior: 'instant'
     });
 
-    // Wait for TikTok feed to append next items
-    await wait(750 + Math.floor(Math.random() * 350));
+    // STEP 2: Scroll the very last video element into viewport to trigger TikTok IntersectionObserver
+    const allCards = document.querySelectorAll('[data-e2e="user-post-item"]') || document.querySelectorAll('a[href*="/video/"]');
+    if (allCards.length > 0) {
+      try {
+        allCards[allCards.length - 1].scrollIntoView({ behavior: 'instant', block: 'end' });
+      } catch (_) {}
+    }
+
+    // STEP 3: Wait for TikTok's network response
+    await wait(1300 + Math.floor(Math.random() * 400));
+
+    // STEP 4: Scroll jiggle (scroll up 350px then down 450px) to force re-evaluation of IntersectionObserver
+    window.scrollBy({ top: -350, behavior: 'instant' });
+    await wait(200);
+    window.scrollBy({ top: 450, behavior: 'instant' });
+    window.dispatchEvent(new Event('scroll'));
+
+    // Wait for DOM cards to be rendered
+    await wait(900 + Math.floor(Math.random() * 300));
   }
 
   // Final check

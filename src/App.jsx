@@ -304,7 +304,8 @@ function App() {
               webpage_url: item.webpage_url || item.url || '',
               url: item.webpage_url || item.url || '',
               uploader: item.uploader || result.uploader || channelInput,
-              uploader_id: item.uploader_id || result.uploaderId || channelInput
+              uploader_id: item.uploader_id || result.uploaderId || channelInput,
+              shopProduct: item.shopProduct || null
             };
           } else {
             const urlStr = String(item);
@@ -323,7 +324,8 @@ function App() {
               webpage_url: urlStr,
               url: urlStr,
               uploader: result.uploader || channelInput,
-              uploader_id: result.uploaderId || channelInput
+              uploader_id: result.uploaderId || channelInput,
+              shopProduct: null
             };
           }
         });
@@ -825,6 +827,38 @@ function App() {
     }
   };
 
+  // Open Watch Modal and enrich in real-time with exact TikTok Shop product & stats
+  const handleOpenWatchModal = (video) => {
+    if (!video) return;
+    setSelectedVideo(video);
+    setActiveModal('watch');
+    setPlayerIsPlaying(true);
+    setPlayerCurrentTime(0);
+
+    const targetUrl = video.webpage_url || video.url;
+    if (targetUrl) {
+      fetch('/api/video-details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: targetUrl, proxy })
+      })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data && data.success && data.video) {
+            setSelectedVideo(prev => ({
+              ...prev,
+              ...data.video,
+              shopProduct: data.video.shopProduct || prev?.shopProduct
+            }));
+            // Update in videos / singleVideos list
+            setVideos(prevList => prevList.map(v => (v.id === video.id || v.webpage_url === targetUrl) ? { ...v, ...data.video } : v));
+            setSingleVideos(prevList => prevList.map(v => (v.id === video.id || v.webpage_url === targetUrl) ? { ...v, ...data.video } : v));
+          }
+        })
+        .catch(() => {});
+    }
+  };
+
   // Helper format view counts
   const formatViews = (num) => {
     if (!num) return '0 lượt xem';
@@ -1138,13 +1172,30 @@ function App() {
 
                           <div 
                             className="video-thumbnail-container"
-                            onClick={() => {
-                              setSelectedVideo(video);
-                              setActiveModal('watch');
-                            }}
-                            title="Click để xem video"
+                            onClick={() => handleOpenWatchModal(video)}
+                            title="Click để xem video và thông tin giỏ hàng"
                           >
                             <img className="video-thumbnail" src={video.thumbnail} alt={video.title} loading="lazy" />
+                            {video.shopProduct ? (
+                              <span style={{ 
+                                position: 'absolute', 
+                                top: '8px', 
+                                right: '8px', 
+                                background: 'var(--tt-red)', 
+                                color: '#fff', 
+                                fontSize: '11px', 
+                                fontWeight: 700, 
+                                padding: '2px 7px', 
+                                borderRadius: '4px', 
+                                zIndex: 3, 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '3px',
+                                boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
+                              }}>
+                                🛍️ Shop
+                              </span>
+                            ) : null}
                             <span className="video-views">
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
@@ -1311,13 +1362,30 @@ function App() {
 
                       <div 
                         className="video-thumbnail-container"
-                        onClick={() => {
-                          setSelectedVideo(vid);
-                          setActiveModal('watch');
-                        }}
-                        title="Click để xem video"
+                        onClick={() => handleOpenWatchModal(vid)}
+                        title="Click để xem video và thông tin giỏ hàng"
                       >
                         <img className="video-thumbnail" src={vid.thumbnail} alt={vid.title} loading="lazy" />
+                        {vid.shopProduct ? (
+                          <span style={{ 
+                            position: 'absolute', 
+                            top: '8px', 
+                            right: '8px', 
+                            background: 'var(--tt-red)', 
+                            color: '#fff', 
+                            fontSize: '11px', 
+                            fontWeight: 700, 
+                            padding: '2px 7px', 
+                            borderRadius: '4px', 
+                            zIndex: 3, 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '3px',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
+                          }}>
+                            🛍️ Shop
+                          </span>
+                        ) : null}
                         <span className="video-views">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                             <polygon points="5 3 19 12 5 21 5 3"></polygon>
@@ -1518,10 +1586,7 @@ function App() {
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="btn btn-secondary" onClick={() => {
-                        setSelectedVideo(video);
-                        setActiveModal('watch');
-                      }}>
+                      <button className="btn btn-secondary" onClick={() => handleOpenWatchModal(video)}>
                         ▶ Xem video
                       </button>
                       <button className="btn btn-primary" onClick={() => handleDownload(video?.url || video?.webpage_url)}>
@@ -1751,15 +1816,13 @@ function App() {
 
         const handlePrevVideo = () => {
           if (currentVideoIndex > 0) {
-            setSelectedVideo(currentVideoList[currentVideoIndex - 1]);
-            setPlayerIsPlaying(true);
+            handleOpenWatchModal(currentVideoList[currentVideoIndex - 1]);
           }
         };
 
         const handleNextVideo = () => {
           if (currentVideoIndex >= 0 && currentVideoIndex < currentVideoList.length - 1) {
-            setSelectedVideo(currentVideoList[currentVideoIndex + 1]);
-            setPlayerIsPlaying(true);
+            handleOpenWatchModal(currentVideoList[currentVideoIndex + 1]);
           }
         };
 

@@ -179,6 +179,140 @@ async function fetchVideoInfoFromTikWM(videoUrl) {
   }
 }
 
+// Function to extract real stats and exact TikTok Shop product from video detail page
+async function extractTikTokVideoDetails(videoUrl) {
+  try {
+    let cleanUrl = (videoUrl || '').trim();
+    if (!cleanUrl.startsWith('http')) {
+      cleanUrl = `https://www.tiktok.com/${cleanUrl}`;
+    }
+
+    const res = await fetch(cleanUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7'
+      }
+    });
+
+    if (!res.ok) return null;
+    const html = await res.text();
+
+    const scriptMatch = html.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([\s\S]*?)<\/script>/) ||
+                        html.match(/<script id="SIGI_STATE"[^>]*>([\s\S]*?)<\/script>/);
+
+    if (!scriptMatch) return null;
+
+    const data = JSON.parse(scriptMatch[1]);
+    const defaultScope = data['__DEFAULT_SCOPE__'] || data;
+    const itemInfo = defaultScope['webapp.video-detail']?.itemInfo?.itemStruct || 
+                     defaultScope.ItemModule?.[Object.keys(defaultScope.ItemModule || {})[0]];
+
+    if (!itemInfo) return null;
+
+    const stats = itemInfo.stats || {};
+    const viewCount = Number(stats.playCount) || 0;
+    const likeCount = Number(stats.diggCount) || 0;
+    const commentCount = Number(stats.commentCount) || 0;
+    const shareCount = Number(stats.shareCount) || 0;
+    const collectCount = Number(stats.collectCount) || 0;
+
+    // Extract TikTok Shop Anchor & Product
+    let shopProduct = null;
+    const anchors = itemInfo.anchors || [];
+
+    for (const anchor of anchors) {
+      if (anchor.extra) {
+        try {
+          const parsedExtraList = typeof anchor.extra === 'string' ? JSON.parse(anchor.extra) : anchor.extra;
+          if (Array.isArray(parsedExtraList)) {
+            for (const item of parsedExtraList) {
+              if (item.component_key === 'anchor_shop' || item.type === 33 || item.keyword) {
+                let inner = {};
+                if (typeof item.extra === 'string') {
+                  try { inner = JSON.parse(item.extra); } catch (_) {}
+                } else if (typeof item.extra === 'object') {
+                  inner = item.extra || {};
+                }
+
+                shopProduct = {
+                  productId: inner.product_id || item.id,
+                  title: inner.title || item.keyword || 'Sản phẩm TikTok Shop',
+                  coverUrl: inner.cover_url || (inner.img_url && inner.img_url[0]) || (anchor.icon?.urlList && anchor.icon.urlList[0]),
+                  seoUrl: inner.seo_url || (inner.product_id ? `https://shop.tiktok.com/vn/pdp/${inner.product_id}` : null),
+                  source: inner.source || 'TikTok Shop',
+                  price: inner.price || null,
+                  currency: inner.currency || 'VND',
+                  isShop: true
+                };
+                break;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+      if (shopProduct) break;
+    }
+
+    return {
+      id: itemInfo.id,
+      title: itemInfo.desc || '',
+      description: itemInfo.desc || '',
+      thumbnail: itemInfo.video?.cover || itemInfo.video?.originCover || null,
+      duration: itemInfo.video?.duration || null,
+      viewCount,
+      likeCount,
+      commentCount,
+      shareCount,
+      collectCount,
+      shopProduct,
+      uploader: itemInfo.author?.nickname || 'TikTok Creator',
+      uploader_id: itemInfo.author?.uniqueId || 'creator',
+      webpage_url: cleanUrl
+    };
+  } catch (err) {
+    console.error('extractTikTokVideoDetails error:', err.message);
+    return null;
+  }
+}
+
+// Endpoint to fetch single video details with real stats & shop products
+app.post('/api/video-details', async (req, res) => {
+  const { url, proxy = null } = req.body;
+  if (!url) return res.status(400).json({ error: 'Video URL is required' });
+
+  try {
+    let details = await extractTikTokVideoDetails(url);
+    if (details) {
+      return res.json({ success: true, video: details });
+    }
+
+    // Fallback to TikWM
+    let videoDetails = await fetchVideoInfoFromTikWM(url);
+    if (!videoDetails) {
+      const data = await ytdlp.getVideoInfo(url, proxy);
+      videoDetails = {
+        id: data.id,
+        title: data.title || data.description || 'No Title',
+        description: data.description || '',
+        thumbnail: data.thumbnail || (data.thumbnails?.[0]?.url) || null,
+        duration: data.duration || null,
+        viewCount: data.view_count || 0,
+        likeCount: data.like_count || 0,
+        commentCount: data.comment_count || 0,
+        shareCount: data.share_count || 0,
+        uploader: data.uploader || null,
+        uploader_id: data.uploader_id || null,
+        webpage_url: data.webpage_url,
+        shopProduct: null
+      };
+    }
+    res.json({ success: true, video: videoDetails });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Endpoint to fetch single video details
 app.post('/api/video-info', async (req, res) => {
   const { url, proxy = null } = req.body;
@@ -188,7 +322,10 @@ app.post('/api/video-info', async (req, res) => {
 
   console.log(`Fetching details for video: ${url}`);
   try {
-    let videoDetails = await fetchVideoInfoFromTikWM(url);
+    let videoDetails = await extractTikTokVideoDetails(url);
+    if (!videoDetails) {
+      videoDetails = await fetchVideoInfoFromTikWM(url);
+    }
     if (!videoDetails) {
       console.log('TikWM failed. Falling back to yt-dlp...');
       const data = await ytdlp.getVideoInfo(url, proxy);
@@ -204,7 +341,8 @@ app.post('/api/video-info', async (req, res) => {
         shareCount: data.share_count || null,
         uploader: data.uploader || null,
         uploader_id: data.uploader_id || null,
-        webpage_url: data.webpage_url
+        webpage_url: data.webpage_url,
+        shopProduct: null
       };
     }
 
@@ -224,10 +362,11 @@ app.post('/api/batch-video-info', async (req, res) => {
 
   console.log(`[Batch] Fetching details for ${urls.length} videos...`);
   try {
-    // Fetch via TikWM concurrently without spawning heavy child processes
     const results = await Promise.all(
       urls.slice(0, 50).map(async (url) => {
         try {
+          const direct = await extractTikTokVideoDetails(url);
+          if (direct) return direct;
           return await fetchVideoInfoFromTikWM(url);
         } catch (_) {
           return null;
