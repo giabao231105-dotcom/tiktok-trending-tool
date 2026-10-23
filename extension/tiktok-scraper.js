@@ -292,14 +292,16 @@ async function startAutoScrollScrape(targetLimit = 30) {
   );
   await wait(600);
 
-  chrome.runtime.sendMessage({
-    action: 'SCRAPE_FINISHED',
-    videos: videoItems,
-    videoUrls: videoUrls,
-    uploader: meta.uploader,
-    uploaderId: meta.uploaderId,
-    avatar: meta.avatar
-  });
+  try {
+    chrome.runtime.sendMessage({
+      action: 'SCRAPE_FINISHED',
+      videos: videoItems,
+      videoUrls: videoUrls,
+      uploader: meta.uploader,
+      uploaderId: meta.uploaderId,
+      avatar: meta.avatar
+    }).catch(() => {});
+  } catch (_) {}
 }
 
 // Listen for execution command from background service worker
@@ -314,12 +316,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // Inform background that the TikTok page is loaded and ready
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
   setTimeout(() => {
-    chrome.runtime.sendMessage({ action: 'TIKTOK_PAGE_READY' });
+    try {
+      chrome.runtime.sendMessage({ action: 'TIKTOK_PAGE_READY' }).catch(() => {});
+    } catch (_) {}
   }, 1000);
 } else {
   window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
-      chrome.runtime.sendMessage({ action: 'TIKTOK_PAGE_READY' });
+      try {
+        chrome.runtime.sendMessage({ action: 'TIKTOK_PAGE_READY' }).catch(() => {});
+      } catch (_) {}
     }, 1000);
   });
 }

@@ -5,7 +5,7 @@ console.log('[ZVibe Extension] Bridge content script initialized.');
 function broadcastReady() {
   window.postMessage({
     type: 'ZVIBE_EXTENSION_READY',
-    version: '1.0.0',
+    version: '2.0.0',
     timestamp: Date.now()
   }, '*');
 }
@@ -22,7 +22,7 @@ window.addEventListener('message', (event) => {
   if (event.data.type === 'ZVIBE_PING_EXTENSION') {
     window.postMessage({
       type: 'ZVIBE_PONG_EXTENSION',
-      version: '1.0.0'
+      version: '2.0.0'
     }, '*');
     return;
   }

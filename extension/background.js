@@ -70,9 +70,9 @@ async function handleScanChannel(request, sender, sendResponse) {
           await chrome.tabs.sendMessage(tiktokTabId, {
             action: 'EXECUTE_SCRAPE',
             limit: limit
-          });
+          }).catch(() => {});
         } catch (err) {
-          console.error('[ZVibe BG] Error sending EXECUTE_SCRAPE:', err);
+          console.warn('[ZVibe BG] Notice sending EXECUTE_SCRAPE:', err);
         }
       } else if (msg.action === 'SCRAPE_PROGRESS') {
         // Reset timeout guard since the scraper is actively finding videos
@@ -84,7 +84,7 @@ async function handleScanChannel(request, sender, sendResponse) {
               action: 'SCRAPE_PROGRESS',
               count: msg.count,
               limit: msg.limit
-            });
+            }).catch(() => {});
           } catch (_) {}
         }
       } else if (msg.action === 'SCRAPE_FINISHED') {
