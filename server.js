@@ -240,6 +240,7 @@ async function extractTikTokVideoDetails(videoUrl) {
                   title: inner.title || item.keyword || 'Sản phẩm TikTok Shop',
                   coverUrl: inner.cover_url || (inner.img_url && inner.img_url[0]) || (anchor.icon?.urlList && anchor.icon.urlList[0]),
                   seoUrl: inner.seo_url || (inner.product_id ? `https://shop.tiktok.com/vn/pdp/${inner.product_id}` : null),
+                  url: inner.seo_url || (inner.product_id ? `https://shop.tiktok.com/vn/pdp/${inner.product_id}` : null),
                   source: inner.source || 'TikTok Shop',
                   price: inner.price || null,
                   currency: inner.currency || 'VND',
@@ -252,6 +253,23 @@ async function extractTikTokVideoDetails(videoUrl) {
         } catch (_) {}
       }
       if (shopProduct) break;
+    }
+
+    if (!shopProduct) {
+      const desc = itemInfo.desc || '';
+      if (/giỏ hàng|tiktokshop|tiktok shop|sản phẩm|mua tại/i.test(desc)) {
+        const match = desc.match(/(?:mua tại|giỏ hàng|sản phẩm)[:\s]+([^#\n.]+)/i);
+        shopProduct = {
+          title: match ? match[1].trim() : 'Sản phẩm được gắn trong Giỏ hàng',
+          coverUrl: itemInfo.video?.cover || itemInfo.video?.originCover || null,
+          price: null,
+          currency: 'VND',
+          url: cleanUrl,
+          seoUrl: cleanUrl,
+          isShop: true,
+          source: 'TikTok Shop'
+        };
+      }
     }
 
     return {

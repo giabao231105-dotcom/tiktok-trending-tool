@@ -1841,11 +1841,14 @@ function App() {
           if (/giỏ hàng|tiktokshop|tiktok shop|sản phẩm|mua tại/i.test(title)) {
             const match = title.match(/(?:mua tại|giỏ hàng|sản phẩm)[:\s]+([^#\n.]+)/i);
             return {
-              title: match ? match[1].trim() : 'Sản phẩm được gắn trong Giỏ hàng (Góc trái video)',
+              title: match ? match[1].trim() : 'Sản phẩm được gắn trong Giỏ hàng',
+              coverUrl: selectedVideo.thumbnail || null,
               type: 'TikTokShop',
               icon: '🛍️',
               url: selectedVideo.webpage_url || selectedVideo.url,
+              seoUrl: selectedVideo.webpage_url || selectedVideo.url,
               isAffiliate: true,
+              source: 'TikTok Shop',
               note: 'Phát hiện liên kết giỏ hàng TikTok Shop từ nội dung'
             };
           }
@@ -2091,31 +2094,56 @@ function App() {
                     </div>
 
                     <div className="tt-shop-body">
-                      <div className="tt-shop-icon-box">
-                        {shopProduct.icon || '🛍️'}
+                      <div className="tt-shop-cover-box">
+                        {shopProduct.coverUrl ? (
+                          <img 
+                            src={shopProduct.coverUrl} 
+                            alt={shopProduct.title} 
+                            className="tt-shop-cover-img"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const fallback = e.currentTarget.parentElement?.querySelector('.tt-shop-fallback-icon');
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className="tt-shop-fallback-icon" 
+                          style={{ display: shopProduct.coverUrl ? 'none' : 'flex' }}
+                        >
+                          🛍️
+                        </div>
                       </div>
+
                       <div className="tt-shop-details">
-                        <div className="tt-shop-title">
+                        <div className="tt-shop-title" title={shopProduct.title}>
                           {shopProduct.title}
                         </div>
+                        {shopProduct.price ? (
+                          <div className="tt-shop-price-tag">
+                            💰 Giá bán: <strong>{shopProduct.price}</strong>
+                          </div>
+                        ) : null}
                         <div className="tt-shop-desc">
-                          {shopProduct.note || 'Video được gắn liên kết sản phẩm TikTok Shop chính thức (Affiliate / E-commerce)'}
+                          {shopProduct.source === 'TikTok Shop' 
+                            ? '✅ Sản phẩm chính hãng gắn trên giỏ hàng video TikTok' 
+                            : (shopProduct.note || 'Sản phẩm được gắn trong giỏ hàng video TikTok')}
                         </div>
                       </div>
                     </div>
 
                     <a 
-                      href={shopProduct.url || selectedVideo.webpage_url || selectedVideo.url} 
+                      href={shopProduct.seoUrl || shopProduct.url || selectedVideo.webpage_url || selectedVideo.url} 
                       target="_blank" 
                       rel="noreferrer" 
                       className="tt-shop-action-btn"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <circle cx="9" cy="21" r="1"></circle>
                         <circle cx="20" cy="21" r="1"></circle>
                         <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
                       </svg>
-                      Mở xem giỏ hàng sản phẩm trên TikTok ↗
+                      Xem chi tiết sản phẩm trên TikTok Shop ↗
                     </a>
                   </div>
                 ) : (
