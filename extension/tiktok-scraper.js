@@ -102,6 +102,8 @@ function cacheItemData(item) {
 
   const stats = item.stats || {};
   const shopProduct = parseAnchorShop(item);
+  const playUrl = item.video?.playAddr || item.video?.downloadAddr || null;
+  const images = (item.imagePost?.images || []).map(img => img.display_image?.url_list?.[0] || img.imageURL?.urlList?.[0] || '').filter(Boolean);
 
   itemDetailsCache.set(String(vid), {
     id: String(vid),
@@ -113,9 +115,11 @@ function cacheItemData(item) {
       shareCount: Number(stats.shareCount) || 0
     },
     shopProduct: shopProduct,
-    thumbnail: item.video?.cover || item.video?.originCover || item.video?.dynamicCover || '',
+    thumbnail: item.video?.cover || item.video?.originCover || item.video?.dynamicCover || (images[0] || ''),
     duration: Number(item.video?.duration) || null,
-    author: item.author?.uniqueId || item.author?.nickname || ''
+    author: item.author?.uniqueId || item.author?.nickname || '',
+    playUrl: playUrl,
+    images: images
   });
 }
 
@@ -416,7 +420,7 @@ function extractVideoItems(uploader, uploaderId) {
           id: vid,
           title: cached?.title || title || 'TikTok Video',
           description: cached?.title || title || '',
-          thumbnail: cached?.thumbnail || thumbnail || '',
+          thumbnail: cached?.thumbnail || thumbnail || (cached?.images?.[0] || ''),
           viewCount: viewCount,
           likeCount: cached?.stats?.diggCount || 0,
           commentCount: cached?.stats?.commentCount || 0,
@@ -424,6 +428,8 @@ function extractVideoItems(uploader, uploaderId) {
           duration: cached?.duration || null,
           webpage_url: cleanUrl,
           url: cleanUrl,
+          playUrl: cached?.playUrl || null,
+          images: cached?.images || [],
           uploader: uploader || cleanAuthor || '',
           uploader_id: cleanAuthor || '',
           shopProduct: shopProduct

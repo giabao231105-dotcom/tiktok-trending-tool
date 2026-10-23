@@ -23,6 +23,9 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date() });
 });
 
+// In-memory cache for video metadata and direct CDN streaming URLs
+const videoMetadataCache = new Map();
+
 // Serve static React build files for single-port production / cloud deployment
 const distPath = path.join(__dirname, 'dist');
 if (fs.existsSync(distPath)) {
@@ -272,11 +275,14 @@ async function extractTikTokVideoDetails(videoUrl) {
       }
     }
 
+    const playUrl = itemInfo.video?.playAddr || itemInfo.video?.downloadAddr || null;
+    const images = (itemInfo.imagePost?.images || []).map(img => img.display_image?.url_list?.[0] || img.imageURL?.urlList?.[0] || '').filter(Boolean);
+
     return {
       id: itemInfo.id,
       title: itemInfo.desc || '',
       description: itemInfo.desc || '',
-      thumbnail: itemInfo.video?.cover || itemInfo.video?.originCover || null,
+      thumbnail: itemInfo.video?.cover || itemInfo.video?.originCover || (images[0] || null),
       duration: itemInfo.video?.duration || null,
       viewCount,
       likeCount,
@@ -286,7 +292,9 @@ async function extractTikTokVideoDetails(videoUrl) {
       shopProduct,
       uploader: itemInfo.author?.nickname || 'TikTok Creator',
       uploader_id: itemInfo.author?.uniqueId || 'creator',
-      webpage_url: cleanUrl
+      webpage_url: cleanUrl,
+      playUrl,
+      images
     };
   } catch (err) {
     console.error('extractTikTokVideoDetails error:', err.message);
@@ -294,37 +302,50 @@ async function extractTikTokVideoDetails(videoUrl) {
   }
 }
 
-// Endpoint to fetch single video details with real stats & shop products
+// Endpoint to fetch single video details with real stats & shop products (Cached)
 app.post('/api/video-details', async (req, res) => {
   const { url, proxy = null } = req.body;
   if (!url) return res.status(400).json({ error: 'Video URL is required' });
 
   try {
+    if (videoMetadataCache.has(url)) {
+      const cached = videoMetadataCache.get(url);
+      if (cached && (Date.now() - cached.timestamp < 3600000)) {
+        return res.json({ success: true, video: cached.data });
+      }
+    }
+
     let details = await extractTikTokVideoDetails(url);
     if (details) {
+      videoMetadataCache.set(url, { data: details, playUrl: details.playUrl, timestamp: Date.now() });
       return res.json({ success: true, video: details });
     }
 
     // Fallback to TikWM
     let videoDetails = await fetchVideoInfoFromTikWM(url);
-    if (!videoDetails) {
-      const data = await ytdlp.getVideoInfo(url, proxy);
-      videoDetails = {
-        id: data.id,
-        title: data.title || data.description || 'No Title',
-        description: data.description || '',
-        thumbnail: data.thumbnail || (data.thumbnails?.[0]?.url) || null,
-        duration: data.duration || null,
-        viewCount: data.view_count || 0,
-        likeCount: data.like_count || 0,
-        commentCount: data.comment_count || 0,
-        shareCount: data.share_count || 0,
-        uploader: data.uploader || null,
-        uploader_id: data.uploader_id || null,
-        webpage_url: data.webpage_url,
-        shopProduct: null
-      };
+    if (videoDetails) {
+      videoMetadataCache.set(url, { data: videoDetails, playUrl: videoDetails.playUrl, timestamp: Date.now() });
+      return res.json({ success: true, video: videoDetails });
     }
+
+    const data = await ytdlp.getVideoInfo(url, proxy);
+    videoDetails = {
+      id: data.id,
+      title: data.title || data.description || 'No Title',
+      description: data.description || '',
+      thumbnail: data.thumbnail || (data.thumbnails?.[0]?.url) || null,
+      duration: data.duration || null,
+      viewCount: data.view_count || 0,
+      likeCount: data.like_count || 0,
+      commentCount: data.comment_count || 0,
+      shareCount: data.share_count || 0,
+      uploader: data.uploader || null,
+      uploader_id: data.uploader_id || null,
+      webpage_url: data.webpage_url,
+      playUrl: data.url,
+      shopProduct: null
+    };
+    videoMetadataCache.set(url, { data: videoDetails, playUrl: data.url, timestamp: Date.now() });
     res.json({ success: true, video: videoDetails });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -510,24 +531,46 @@ app.get('/api/download', async (req, res) => {
 
 // Endpoint to stream video with seeking / scrubbing support (HTTP Range)
 app.get('/api/stream-video', async (req, res) => {
-  const { url, proxy = null } = req.query;
+  const { url, playUrl, proxy = null } = req.query;
 
-  if (!url) {
-    return res.status(400).send('Video URL is required');
+  if (!url && !playUrl) {
+    return res.status(400).send('Video URL or playUrl is required');
   }
 
   try {
-    let videoData = await fetchVideoInfoFromTikWM(url);
-    let directVideoUrl = null;
+    let directVideoUrl = playUrl || null;
 
-    if (videoData && videoData.playUrl) {
-      directVideoUrl = videoData.playUrl;
-    } else {
-      const info = await ytdlp.getVideoInfo(url, proxy);
-      const formats = info.formats || [];
-      const mergedFormats = formats.filter(f => f.vcodec && f.vcodec !== 'none' && f.acodec && f.acodec !== 'none');
-      let selectedFormat = mergedFormats.find(f => f.format_id && !f.format_id.includes('watermark')) || mergedFormats[0] || formats[0];
-      directVideoUrl = selectedFormat ? selectedFormat.url : info.url;
+    if (!directVideoUrl && url && videoMetadataCache.has(url)) {
+      const cached = videoMetadataCache.get(url);
+      if (cached && cached.playUrl) directVideoUrl = cached.playUrl;
+    }
+
+    if (!directVideoUrl && url) {
+      const videoData = await fetchVideoInfoFromTikWM(url);
+      if (videoData && videoData.playUrl) {
+        directVideoUrl = videoData.playUrl;
+        videoMetadataCache.set(url, { playUrl: directVideoUrl, timestamp: Date.now() });
+      }
+    }
+
+    if (!directVideoUrl && url) {
+      const directDetails = await extractTikTokVideoDetails(url);
+      if (directDetails && directDetails.playUrl) {
+        directVideoUrl = directDetails.playUrl;
+        videoMetadataCache.set(url, { playUrl: directVideoUrl, timestamp: Date.now() });
+      }
+    }
+
+    if (!directVideoUrl && url) {
+      try {
+        const info = await ytdlp.getVideoInfo(url, proxy);
+        const formats = info.formats || [];
+        const mergedFormats = formats.filter(f => f.vcodec && f.vcodec !== 'none' && f.acodec && f.acodec !== 'none');
+        let selectedFormat = mergedFormats.find(f => f.format_id && !f.format_id.includes('watermark')) || mergedFormats[0] || formats[0];
+        directVideoUrl = selectedFormat ? selectedFormat.url : info.url;
+      } catch (err) {
+        console.warn('yt-dlp stream fallback failed:', err.message);
+      }
     }
 
     if (!directVideoUrl) {
@@ -535,7 +578,7 @@ app.get('/api/stream-video', async (req, res) => {
     }
 
     const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
       'Referer': 'https://www.tiktok.com/'
     };
 
@@ -543,7 +586,18 @@ app.get('/api/stream-video', async (req, res) => {
       headers['Range'] = req.headers.range;
     }
 
-    const cdnResponse = await fetch(directVideoUrl, { headers });
+    let cdnResponse = await fetch(directVideoUrl, { headers });
+
+    // If initial CDN URL expired or gave error, retry with TikWM
+    if (!cdnResponse.ok && cdnResponse.status !== 206 && url) {
+      console.warn(`CDN URL gave status ${cdnResponse.status}. Retrying stream with fresh TikWM fetch...`);
+      videoMetadataCache.delete(url);
+      const freshData = await fetchVideoInfoFromTikWM(url);
+      if (freshData && freshData.playUrl && freshData.playUrl !== directVideoUrl) {
+        directVideoUrl = freshData.playUrl;
+        cdnResponse = await fetch(directVideoUrl, { headers });
+      }
+    }
 
     res.status(cdnResponse.status);
     res.setHeader('Content-Type', 'video/mp4');

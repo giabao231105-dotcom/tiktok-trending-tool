@@ -99,6 +99,7 @@ function App() {
   const [playerDuration, setPlayerDuration] = useState(0);
   const [playerVolume, setPlayerVolume] = useState(1);
   const [playerIsMuted, setPlayerIsMuted] = useState(false);
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const videoRef = useRef(null);
 
   // Listen for ZVibe Chrome Extension heartbeat/handshake
@@ -309,7 +310,9 @@ function App() {
               url: item.webpage_url || item.url || '',
               uploader: item.uploader || result.uploader || channelInput,
               uploader_id: item.uploader_id || result.uploaderId || channelInput,
-              shopProduct: item.shopProduct || null
+              shopProduct: item.shopProduct || null,
+              playUrl: item.playUrl || null,
+              images: item.images || []
             };
           } else {
             const urlStr = String(item);
@@ -329,7 +332,9 @@ function App() {
               url: urlStr,
               uploader: result.uploader || channelInput,
               uploader_id: result.uploaderId || channelInput,
-              shopProduct: null
+              shopProduct: null,
+              playUrl: null,
+              images: []
             };
           }
         });
@@ -351,7 +356,7 @@ function App() {
           fetch('/api/batch-video-info', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ urls: urlsToEnrich, proxy })
+            body: JSON.stringify({ urls: urlsToEnrich.slice(0, 50), proxy })
           })
             .then(res => res.ok ? res.json() : null)
             .then(data => {
@@ -359,7 +364,15 @@ function App() {
                 const map = new Map(data.videos.map(v => [v.id, v]));
                 setVideos(prev => prev.map(v => {
                   const enriched = map.get(v.id);
-                  return enriched ? { ...v, ...enriched } : v;
+                  if (!enriched) return v;
+                  return {
+                    ...v,
+                    ...enriched,
+                    shopProduct: enriched.shopProduct || v.shopProduct,
+                    thumbnail: enriched.thumbnail || v.thumbnail,
+                    playUrl: enriched.playUrl || v.playUrl,
+                    images: (enriched.images && enriched.images.length > 0) ? enriched.images : (v.images || [])
+                  };
                 }));
               }
             })
@@ -838,6 +851,7 @@ function App() {
     setActiveModal('watch');
     setPlayerIsPlaying(true);
     setPlayerCurrentTime(0);
+    setActivePhotoIndex(0);
 
     const targetUrl = video.webpage_url || video.url;
     if (targetUrl) {
@@ -1906,40 +1920,90 @@ function App() {
 
               {/* Video Player Stage */}
               <div className="tt-player-stage">
-                <video 
-                  ref={videoRef}
-                  className="tt-player-video"
-                  src={`/api/stream-video?url=${encodeURIComponent(selectedVideo.url || selectedVideo.webpage_url)}&proxy=${encodeURIComponent(proxy || '')}`}
-                  autoPlay
-                  playsInline
-                  onTimeUpdate={() => {
-                    if (videoRef.current) {
-                      setPlayerCurrentTime(videoRef.current.currentTime);
-                      setPlayerDuration(videoRef.current.duration || 0);
-                    }
-                  }}
-                  onLoadedMetadata={() => {
-                    if (videoRef.current) {
-                      setPlayerDuration(videoRef.current.duration || 0);
-                    }
-                  }}
-                  onPlay={() => setPlayerIsPlaying(true)}
-                  onPause={() => setPlayerIsPlaying(false)}
-                  onClick={() => {
-                    if (videoRef.current) {
-                      if (videoRef.current.paused) videoRef.current.play();
-                      else videoRef.current.pause();
-                    }
-                  }}
-                />
+                {(() => {
+                  const isPhoto = (selectedVideo.webpage_url || selectedVideo.url || '').includes('/photo/') || (selectedVideo.images && selectedVideo.images.length > 0);
+                  const photos = (selectedVideo.images && selectedVideo.images.length > 0)
+                    ? selectedVideo.images
+                    : [selectedVideo.thumbnail].filter(Boolean);
 
-                {!playerIsPlaying && (
-                  <div className="tt-play-overlay-icon">
-                    <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
-                      <polygon points="6 3 20 12 6 21 6 3"></polygon>
-                    </svg>
-                  </div>
-                )}
+                  if (isPhoto) {
+                    return (
+                      <div className="tt-photo-carousel-stage">
+                        <img 
+                          src={photos[activePhotoIndex] || selectedVideo.thumbnail} 
+                          alt="TikTok Photo Post" 
+                          className="tt-photo-display-img"
+                        />
+                        {photos.length > 1 && (
+                          <>
+                            <button 
+                              className="tt-photo-nav-btn prev"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActivePhotoIndex(prev => (prev > 0 ? prev - 1 : photos.length - 1));
+                              }}
+                              title="Ảnh trước"
+                            >
+                              ‹
+                            </button>
+                            <button 
+                              className="tt-photo-nav-btn next"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActivePhotoIndex(prev => (prev < photos.length - 1 ? prev + 1 : 0));
+                              }}
+                              title="Ảnh tiếp theo"
+                            >
+                              ›
+                            </button>
+                            <div className="tt-photo-counter-pill">
+                              📷 {activePhotoIndex + 1} / {photos.length}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <video 
+                        ref={videoRef}
+                        className="tt-player-video"
+                        src={`/api/stream-video?url=${encodeURIComponent(selectedVideo.url || selectedVideo.webpage_url)}&playUrl=${encodeURIComponent(selectedVideo.playUrl || '')}&proxy=${encodeURIComponent(proxy || '')}`}
+                        autoPlay
+                        playsInline
+                        onTimeUpdate={() => {
+                          if (videoRef.current) {
+                            setPlayerCurrentTime(videoRef.current.currentTime);
+                            setPlayerDuration(videoRef.current.duration || 0);
+                          }
+                        }}
+                        onLoadedMetadata={() => {
+                          if (videoRef.current) {
+                            setPlayerDuration(videoRef.current.duration || 0);
+                          }
+                        }}
+                        onPlay={() => setPlayerIsPlaying(true)}
+                        onPause={() => setPlayerIsPlaying(false)}
+                        onClick={() => {
+                          if (videoRef.current) {
+                            if (videoRef.current.paused) videoRef.current.play();
+                            else videoRef.current.pause();
+                          }
+                        }}
+                      />
+
+                      {!playerIsPlaying && (
+                        <div className="tt-play-overlay-icon">
+                          <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor">
+                            <polygon points="6 3 20 12 6 21 6 3"></polygon>
+                          </svg>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 {/* Right Edge Chevrons (Up / Down) */}
                 <div className="tt-player-nav-group">
@@ -2544,7 +2608,7 @@ function App() {
                     <polyline points="7 10 12 15 17 10"></polyline>
                     <line x1="12" y1="15" x2="12" y2="3"></line>
                   </svg>
-                  Tải xuống ZVibe Extension (.ZIP - 9KB)
+                  Tải xuống ZVibe Extension v2.2.0 (.ZIP)
                 </a>
               </div>
 
