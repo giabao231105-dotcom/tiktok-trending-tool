@@ -141,7 +141,11 @@ function App() {
         } else if (e.data.type === 'ZVIBE_CHANNEL_SCAN_ERROR') {
           clearTimeout(timeout);
           window.removeEventListener('message', onResult);
-          reject(new Error(e.data.error || 'Extension báo lỗi khi quét kênh.'));
+          let errText = e.data.error || 'Extension báo lỗi khi quét kênh.';
+          if (errText.includes('Extension context invalidated')) {
+            errText = 'Tiện ích Extension vừa được tải lại. Vui lòng bấm F5 (Tải lại trang web này) để kích hoạt!';
+          }
+          reject(new Error(errText));
         }
       };
 
