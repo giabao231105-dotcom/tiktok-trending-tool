@@ -126,9 +126,14 @@ async function fetchVideoInfoFromTikWM(videoUrl) {
       if (d.anchors && Array.isArray(d.anchors) && d.anchors.length > 0) {
         const shopAnchor = d.anchors.find(p => 
           p.type === 33 || 
-          p.component_key === 'anchor_shop' || 
+          p.type === 40 || 
+          p.type === 24 || 
+          p.type === 56 || 
+          p.type === 4 ||
+          /shop|product|ecom|cart/i.test(p.component_key || '') ||
           (p.url && /shop\.tiktok\.com|view\/product/i.test(p.url)) ||
-          (p.name && /tiktok\s*shop|giỏ hàng/i.test(p.name))
+          (p.schema && /product|shop/i.test(p.schema)) ||
+          (p.name && !/capcut|filter|hiệu ứng/i.test(p.name) && (p.product_id || p.id || /shop|sản phẩm|mua|giỏ/i.test(p.name)))
         );
         if (shopAnchor) {
           shopProduct = {
@@ -139,12 +144,13 @@ async function fetchVideoInfoFromTikWM(videoUrl) {
             url: shopAnchor.url || shopAnchor.schema || videoUrl,
             seoUrl: shopAnchor.url || (shopAnchor.id ? `https://shop.tiktok.com/vn/pdp/${shopAnchor.id}` : null),
             isAffiliate: true,
+            isShop: true,
             source: 'TikTok Shop'
           };
         }
       } 
       
-      // Only accept commerce_info if it contains a verified product_id or active promotion
+      // Check commerce_info if it contains a verified product_id or active promotion
       if (!shopProduct && d.commerce_info && (d.commerce_info.product_id || (d.commerce_info.adv_promoter && d.commerce_info.adv_promoter.trim() && d.commerce_info.has_commerce))) {
         shopProduct = {
           productId: d.commerce_info.product_id || null,
@@ -154,6 +160,7 @@ async function fetchVideoInfoFromTikWM(videoUrl) {
           url: videoUrl,
           seoUrl: d.commerce_info.product_id ? `https://shop.tiktok.com/vn/pdp/${d.commerce_info.product_id}` : null,
           isAffiliate: true,
+          isShop: true,
           source: 'TikTok Shop'
         };
       }
@@ -244,8 +251,17 @@ async function extractTikTokVideoDetails(videoUrl) {
     const anchors = itemInfo.anchors || [];
 
     for (const anchor of anchors) {
-      // Must be anchor_shop or type 33
-      const isShopType = anchor.component_key === 'anchor_shop' || anchor.type === 33 || anchor.type === 40;
+      // Must be shop anchor
+      const isShopType = 
+        anchor.component_key === 'anchor_shop' || 
+        /shop|cart|ecom|product/i.test(anchor.component_key || '') || 
+        anchor.type === 33 || 
+        anchor.type === 40 || 
+        anchor.type === 24 || 
+        anchor.type === 56 || 
+        anchor.type === 4 || 
+        (anchor.url && /shop|product/i.test(anchor.url));
+
       if (anchor.component_key === 'anchor_capcut' || anchor.type === 28 || /capcut/i.test(anchor.keyword || '')) {
         continue;
       }

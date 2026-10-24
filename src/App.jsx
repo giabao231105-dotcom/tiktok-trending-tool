@@ -863,7 +863,7 @@ function App() {
         .then(res => res.ok ? res.json() : null)
         .then(data => {
           if (data && data.success && data.video) {
-            const isGenuineShop = (sp) => sp && (sp.productId || sp.isShop || (sp.url && sp.url.includes('shop.tiktok.com')));
+            const isGenuineShop = (sp) => sp && (sp.productId || sp.isShop || sp.isAffiliate || (sp.url && sp.url.includes('shop.tiktok.com')));
             const enrichedShop = data.video.shopProduct 
               ? data.video.shopProduct 
               : (isGenuineShop(video.shopProduct) ? video.shopProduct : null);
@@ -2612,7 +2612,7 @@ function App() {
                     <polyline points="7 10 12 15 17 10"></polyline>
                     <line x1="12" y1="15" x2="12" y2="3"></line>
                   </svg>
-                  Tải xuống ZVibe Extension v2.2.1 (.ZIP)
+                  Tải xuống ZVibe Extension v2.2.2 (.ZIP)
                 </a>
               </div>
 
